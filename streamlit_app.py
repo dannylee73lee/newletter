@@ -142,10 +142,12 @@ def create_newsletter():
             
             # 주요 소식 섹션
             if include_news:
+                # 줄바꿈 처리를 별도로 수행
+                news_content_html = news_content.replace('\n', '<br>')
                 st.markdown(f"""
                 <div style="margin:25px 0; clear:both;">
                     <h2 style="color:#0066cc; margin-top:0; padding-bottom:5px; border-bottom:1px solid #eee;">🔔 주요 소식</h2>
-                    <p>{news_content.replace('\\n', '<br>')}</p>
+                    <p>{news_content_html}</p>
                     <p><strong>{news_title}</strong> <a href="{news_link}" target="_blank">자세히 보기</a></p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -155,6 +157,9 @@ def create_newsletter():
                 tips_html = ""
                 for i, tip in enumerate(tips):
                     tips_html += f"<li><strong>팁 {i+1}:</strong> {tip}</li>"
+                
+                # 줄바꿈 처리를 별도로 수행
+                share_tip_html = share_tip.replace('\n', '<br>')
                 
                 st.markdown(f"""
                 <div style="margin:25px 0; clear:both;">
@@ -166,7 +171,7 @@ def create_newsletter():
                     </ol>
                     <div style="background-color:#fffbe6; border:1px dashed #ffd700; padding:12px 15px; margin:20px 0; text-align:center;">
                         <strong>오늘의 공유 팁</strong><br>
-                        {share_tip.replace('\\n', '<br>')}
+                        {share_tip_html}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -246,11 +251,202 @@ def create_newsletter():
             </div>
             """, unsafe_allow_html=True)
             
+            # 뉴스레터 HTML 코드 생성
+            newsletter_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>AIDT Weekly - 제{issue_number}호 ({issue_date.strftime('%Y년 %m월 %d일')})</title>
+                <style>
+                    body {{
+                        font-family: 'Noto Sans KR', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #f9f9f9;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background-color: #ffffff;
+                        padding: 20px;
+                    }}
+                    .header {{
+                        text-align: center;
+                        padding: 20px 0;
+                        border-bottom: 2px solid #0066cc;
+                    }}
+                    .header h1 {{
+                        color: #0066cc;
+                        margin: 10px 0 5px;
+                        font-size: 24px;
+                    }}
+                    .header p {{
+                        color: #666;
+                        margin: 0;
+                        font-size: 14px;
+                    }}
+                    .section {{
+                        margin: 25px 0;
+                        clear: both;
+                    }}
+                    .section h2 {{
+                        color: #0066cc;
+                        margin-top: 0;
+                        padding-bottom: 5px;
+                        border-bottom: 1px solid #eee;
+                        font-size: 18px;
+                    }}
+                    .tip-box {{
+                        background-color: #e9f5ff;
+                        border-left: 4px solid #0066cc;
+                        padding: 15px;
+                        margin: 20px 0;
+                    }}
+                    .tip-box h3 {{
+                        margin-top: 0;
+                        color: #0066cc;
+                        font-size: 16px;
+                    }}
+                    .success-story {{
+                        background-color: #f5f5f5;
+                        padding: 15px;
+                        border-radius: 5px;
+                    }}
+                    .success-story p.quote {{
+                        font-style: italic;
+                        color: #666;
+                        border-left: 3px solid #ccc;
+                        padding-left: 10px;
+                        margin-left: 0;
+                    }}
+                    .q-and-a {{
+                        background-color: #f9f9f9;
+                        padding: 15px;
+                        border-radius: 5px;
+                    }}
+                    .q-and-a p.question {{
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }}
+                    .events {{
+                        background-color: #fff8e9;
+                        padding: 15px;
+                        border-radius: 5px;
+                    }}
+                    .footer {{
+                        text-align: center;
+                        padding-top: 20px;
+                        border-top: 1px solid #eee;
+                        color: #999;
+                        font-size: 12px;
+                    }}
+                    .footer a {{
+                        color: #0066cc;
+                        text-decoration: none;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        background-color: #0066cc;
+                        color: white !important;
+                        padding: 8px 15px;
+                        text-decoration: none;
+                        border-radius: 4px;
+                        margin-top: 10px;
+                    }}
+                    .share-tip {{
+                        background-color: #fffbe6;
+                        border: 1px dashed #ffd700;
+                        padding: 12px 15px;
+                        margin: 20px 0;
+                        text-align: center;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>AIDT Weekly</h1>
+                        <p>제{issue_number}호 | {issue_date.strftime('%Y년 %m월 %d일')}</p>
+                    </div>
+                    
+                    {f'<div class="section"><h2>🔔 주요 소식</h2><p>{news_content.replace(chr(10), "<br>")}</p><p><strong>{news_title}</strong> <a href="{news_link}" target="_blank">자세히 보기</a></p></div>' if include_news else ''}
+                    
+                    {f"""<div class="section">
+                        <h2>💡 이번 주 AIDT 팁</h2>
+                        <h3>{tips_title}</h3>
+                        <p>{tips_intro}</p>
+                        <ol>
+                            {''.join([f'<li><strong>{i+1}번 팁:</strong> {tip}</li>' for i, tip in enumerate(tips)])}
+                        </ol>
+                        <div class="share-tip">
+                            <strong>오늘의 공유 팁</strong><br>
+                            {share_tip.replace(chr(10), '<br>')}
+                        </div>
+                    </div>""" if include_tips else ''}
+                    
+                    {f"""<div class="section">
+                        <h2>🏆 성공 사례</h2>
+                        <div class="success-story">
+                            <h3>{success_title}</h3>
+                            <p><strong>문제 상황:</strong> {success_problem}</p>
+                            <p><strong>AIDT 적용 방법:</strong> {success_solution}</p>
+                            <p><strong>결과:</strong> {success_result}</p>
+                            <p class="quote">"{success_quote}" - {success_quote_author}</p>
+                        </div>
+                    </div>""" if include_success else ''}
+                    
+                    {f"""<div class="section">
+                        <h2>❓ 질문 & 답변</h2>
+                        <div class="q-and-a">
+                            <p class="question">Q: {qna_question}</p>
+                            <p>A: {qna_answer}</p>
+                            <p>
+                                <a href="{qna_link}" class="button">질문 제출하기</a>
+                            </p>
+                        </div>
+                    </div>""" if include_qna else ''}
+                    
+                    {f"""<div class="section">
+                        <h2>📅 다가오는 이벤트</h2>
+                        <div class="events">
+                            <p><strong>{event_date}</strong> - {event_title}</p>
+                            <p>{event_description}</p>
+                            <p>
+                                <a href="{event_link}" class="button">일정 확인하기</a>
+                            </p>
+                        </div>
+                    </div>""" if include_events else ''}
+                    
+                    {f"""<div class="tip-box">
+                        <h3>AI 사용 시 주의사항</h3>
+                        <p>{caution_content}</p>
+                    </div>""" if include_caution else ''}
+                    
+                    <div class="footer">
+                        <p>이 뉴스레터는 매주 월요일에 발송됩니다.<br>
+                        문의사항: <a href="mailto:aidt@company.com">aidt@company.com</a><br>
+                        © 2025 AIDT 추진팀</p>
+                        
+                        <p>
+                            <a href="#" style="color:#0066cc; text-decoration:none;">구독 취소</a> | 
+                            <a href="#" style="color:#0066cc; text-decoration:none;">과거 뉴스레터 보기</a> | 
+                            <a href="#" style="color:#0066cc; text-decoration:none;">피드백 제출</a>
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
             # 뉴스레터 저장 옵션
             st.success("뉴스레터가 생성되었습니다!")
             st.download_button(
                 label="HTML로 다운로드",
-                data="뉴스레터 HTML 코드",
+                data=newsletter_html,
                 file_name=f"aidt_weekly_{issue_number}_{issue_date.strftime('%Y%m%d')}.html",
                 mime="text/html"
             )

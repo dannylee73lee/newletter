@@ -18,10 +18,12 @@ def convert_markdown_to_html(text):
         text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
         
         # 글머리 기호 (- 항목) 처리 - 프롬프트 예시 특별 처리
+        # 원래 내용 추출
         prompt_examples = re.findall(r'^\- (.*?)$', text, flags=re.MULTILINE)
-        for example in prompt_examples:
-            # 내용은 유지하면서 클래스만 추가
-            formatted_example = f'<div class="prompt-example"><div class="prompt-example-title">- {example}</div></div>'
+        for i, example in enumerate(prompt_examples):
+            # 예시 항목 사이에 간격 추가를 위한 클래스 적용
+            margin_class = "prompt-example-with-margin" if i < len(prompt_examples) - 1 else "prompt-example"
+            formatted_example = f'<div class="{margin_class}"><div class="prompt-example-title">- {example}</div></div>'
             text = text.replace(f"- {example}", formatted_example)
         
         # 마지막 문장 스타일 적용 (약간의 여백과 이탤릭체)
@@ -242,6 +244,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         ## 이번 주 팁: [주제에 맞는 구체적인 팁 제목]
         
         팁에 대한 배경과 중요성을 2-3문장으로 간결하게 설명해주세요. AI 기본기와 관련된 내용을 포함하세요.
+        특히, 영어 용어는 한글로 번역하지 말고 그대로 사용해주세요 (예: "Chain of Thought", "Chain of Draft").
         
         **핵심 프롬프트 예시:**
         - 첫 번째 프롬프트 템플릿 (구체적인 예시와 함께)
@@ -448,46 +451,46 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             }}
             
             /* AIDT 팁 섹션 스타일 */
-            .aidt-tips {{
+            .aidt-tips {
                 font-size: 10pt;
-            }}
-            
-            .tip-title {{
+            }
+
+            .tip-title {
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin-bottom: 10px;
                 border-radius: 4px;
                 font-weight: bold;
-            }}
-            
-            .prompt-examples-title {{
+            }
+
+            .prompt-examples-title {
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin: 15px 0 10px 0;
                 border-radius: 4px;
                 font-weight: bold;
-            }}
-            
-            .prompt-example {{
+            }
+
+            .prompt-example {
                 margin-left: 15px;
-                margin-bottom: 12px;
-            }}
-            
-            .prompt-example-title {{
+                margin-bottom: 5px;
+            }
+
+            .prompt-example-with-margin {
+                margin-left: 15px;
+                margin-bottom: 15px; /* 예시 항목 사이에 간격 추가 */
+            }
+
+            .prompt-example-title {
                 color: #ff5722;
                 font-weight: bold;
-                margin-bottom: 4px;
-            }}
-            
-            .prompt-example-content {{
-                margin-left: 5px;
-                margin-bottom: 8px;
-            }}
-            
-            .tip-footer {{
+                line-height: 1.3; /* 예시 내부 줄 간격 줄이기 */
+            }
+
+            .tip-footer {
                 margin-top: 15px;
                 font-style: italic;
-            }}
+            }
         </style>
     </head>
     <body>

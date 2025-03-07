@@ -16,6 +16,7 @@ st.set_page_config(
 )
 
 # 세션 상태 초기화 - 가장 먼저 실행
+# Initialize ALL session state variables at the very top of your script
 if 'issue_number' not in st.session_state:
     st.session_state['issue_number'] = 1
 if 'newsletter_html' not in st.session_state:
@@ -29,7 +30,6 @@ if 'subscribers' not in st.session_state:
         '부서': ['마케팅', 'IT', '인사'],
         '구독일': ['2025-02-01', '2025-02-15', '2025-03-01']
     })
-
 
 # 사이드바 생성
 st.sidebar.title("AIDT Weekly 뉴스레터")

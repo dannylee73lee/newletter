@@ -423,46 +423,46 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             }}
             
             /* AIDT 팁 섹션 스타일 */
-            .aidt-tips {
+            .aidt-tips {{
                 font-size: 10pt;
-            }
+            }}
 
-            .tip-title {
+            .tip-title {{
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin-bottom: 10px;
                 border-radius: 4px;
                 font-weight: bold;
-            }
+            }}
 
-            .prompt-examples-title {
+            .prompt-examples-title {{
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin: 15px 0 10px 0;
                 border-radius: 4px;
                 font-weight: bold;
-            }
+            }}
 
-            .prompt-example {
+            .prompt-example {{
                 margin-left: 15px;
                 margin-bottom: 5px;
-            }
+            }}
 
-            .prompt-example-with-margin {
+            .prompt-example-with-margin {{
                 margin-left: 15px;
                 margin-bottom: 15px; /* 예시 항목 사이에 간격 추가 */
-            }
+            }}
 
-            .prompt-example-title {
+            .prompt-example-title {{
                 color: #ff5722;
                 font-weight: bold;
                 line-height: 1.3; /* 예시 내부 줄 간격 줄이기 */
-            }
+            }}
 
-            .tip-footer {
+            .tip-footer {{
                 margin-top: 15px;
                 font-style: italic;
-            }
+            }}
         </style>
     </head>
     <body>

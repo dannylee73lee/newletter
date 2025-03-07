@@ -173,7 +173,7 @@ def generate_newsletter(api_key, custom_success_story=None):
         <style>
             body {{
                 font-family: 'Segoe UI', Arial, sans-serif;
-                line-height: 1.6;
+                line-height: 1.5;
                 color: #333;
                 margin: 0;
                 padding: 0;
@@ -188,19 +188,19 @@ def generate_newsletter(api_key, custom_success_story=None):
                 padding: 20px;
             }}
             .header {{
-                background-color: #3498db;
+                background-color: #333333;
                 color: white;
-                padding: 20px;
-                text-align: center;
+                padding: 15px 20px;
+                text-align: left;
             }}
             .title {{
                 margin: 0;
-                font-size: 24px;
+                font-size: 20px;
                 font-weight: bold;
             }}
             .issue-date {{
                 margin-top: 5px;
-                font-size: 14px;
+                font-size: 10pt;
             }}
             .section {{
                 margin-bottom: 25px;
@@ -211,95 +211,126 @@ def generate_newsletter(api_key, custom_success_story=None):
                 border-bottom: none;
             }}
             .section-title {{
-                color: #3498db;
-                font-size: 18px;
+                color: #333333;
+                font-size: 16px;
                 font-weight: bold;
                 margin-bottom: 10px;
-                display: flex;
-                align-items: center;
+                background-color: #f5f5f5;
+                padding: 8px 10px;
             }}
             .section-icon {{
                 margin-right: 8px;
             }}
             h2, h3 {{
-                font-size: 16px;
+                font-size: 14px;
                 margin-bottom: 5px;
-                color: #2c3e50;
+                color: #333333;
             }}
             .main-news h2 {{
-                color: #f39c12;
-                font-size: 18px;
-                margin-top: 20px;
-                margin-bottom: 8px;
-                border-bottom: 1px solid #f3f3f3;
-                padding-bottom: 5px;
+                color: #ff5722;
+                font-size: 14px;
+                margin-top: 15px;
+                margin-bottom: 5px;
+                border-bottom: none;
+                padding-bottom: 0;
             }}
             .main-news a {{
-                color: #e67e22;
+                color: #ff5722;
                 text-decoration: none;
             }}
             .main-news a:hover {{
                 text-decoration: underline;
             }}
-            /* 성공 사례 스타일 변경 */
-            .success-case p {{
-                margin: 0 0 10px;
-                padding-left: 30px; /* 3칸 들여쓰기 */
-                font-size: 10pt; /* 글자 크기 10pt */
-            }}
-            p {{
-                margin: 0 0 10px;
+            .main-news p, .success-case p, p, li {{
+                font-size: 10pt;
+                margin: 0 0 8px;
             }}
             ul {{
                 padding-left: 20px;
                 margin-top: 5px;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }}
             li {{
-                margin-bottom: 5px;
+                margin-bottom: 3px;
             }}
             .footer {{
                 background-color: #f1f1f1;
-                padding: 15px;
+                padding: 10px;
                 text-align: center;
-                font-size: 12px;
+                font-size: 9pt;
                 color: #666;
+            }}
+            .section-container {{
+                padding: 0 15px;
+            }}
+            .highlight-box {{
+                background-color: #fff9f5;
+                border: 1px solid #ffe0cc;
+                border-radius: 5px;
+                padding: 15px;
+                margin: 10px 0;
+            }}
+            .highlight-title {{
+                color: #ff5722;
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                text-align: center;
+            }}
+            .highlight-subtitle {{
+                color: #666;
+                font-size: 12px;
+                text-align: center;
+                margin-bottom: 15px;
             }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <div class="title">AIDT Weekly</div>
-                <div class="issue-date">제{issue_number}호 | {date}</div>
+                <div class="title">AI 뉴스</div>
             </div>
             
             <div class="content">
+                <div class="highlight-box">
+                    <div class="highlight-title">지피터스 AI 스터디 15기 오픈</div>
+                    <div class="highlight-subtitle">AI, 어떻게 시작할지 막막하다면?</div>
+                    <p style="text-align: right; margin-top: 5px; font-size: 9pt;"><a href="#" style="color: #ff5722;">알려버스 신청하기 →</a></p>
+                </div>
+                
                 <div class="section">
-                    <div class="section-title"><span class="section-icon">🔔</span> 주요 소식</div>
-                    <div class="main-news">
+                    <div class="section-title">주요 소식</div>
+                    <div class="section-container main-news">
                         {newsletter_content['main_news']}
                     </div>
                 </div>
                 
                 <div class="section">
-                    <div class="section-title"><span class="section-icon">💡</span> 이번 주 AIDT 팁</div>
-                    {newsletter_content['aidt_tips']}
+                    <div class="section-title">이번 주 AIDT 팁</div>
+                    <div class="section-container">
+                        {newsletter_content['aidt_tips']}
+                    </div>
                 </div>
                 
                 <div class="section success-case">
-                    <div class="section-title"><span class="section-icon">🏆</span> 성공 사례</div>
-                    {newsletter_content['success_story']}
+                    <div class="section-title">성공 사례</div>
+                    <div class="section-container">
+                        {newsletter_content['success_story']}
+                    </div>
                 </div>
                 
                 <div class="section">
-                    <div class="section-title"><span class="section-icon">📅</span> 다가오는 이벤트</div>
-                    {newsletter_content['events']}
+                    <div class="section-title">다가오는 이벤트</div>
+                    <div class="section-container">
+                        {newsletter_content['events']}
+                    </div>
                 </div>
                 
                 <div class="section">
-                    <div class="section-title"><span class="section-icon">❓</span> 질문 & 답변</div>
-                    {newsletter_content['qa']}
+                    <div class="section-title">질문 & 답변</div>
+                    <div class="section-container">
+                        {newsletter_content['qa']}
+                    </div>
                 </div>
             </div>
             
@@ -316,7 +347,7 @@ def generate_newsletter(api_key, custom_success_story=None):
 def create_download_link(html_content, filename):
     """HTML 콘텐츠를 다운로드할 수 있는 링크를 생성합니다."""
     b64 = base64.b64encode(html_content.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">뉴스레터 다운로드</a>'
+    href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #ff5722; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">뉴스레터 다운로드</a>'
     return href
 
 def main():

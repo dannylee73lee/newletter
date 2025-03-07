@@ -72,6 +72,36 @@ def fetch_real_time_news(api_key, query="AI digital transformation", days=7, lan
     else:
         raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
+
+def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
+    """
+    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
+    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
+    """
+    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
+    end_date = datetime.now()
+    # 무료 플랜 제한을 고려하여 기간을 줄임
+    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
+    
+    # NewsAPI 요청
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        'q': query,
+        'from': start_date.strftime('%Y-%m-%d'),
+        'to': end_date.strftime('%Y-%m-%d'),
+        'sortBy': 'publishedAt',
+        'language': language,
+        'apiKey': api_key
+    }
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code == 200:
+        news_data = response.json()
+        return news_data['articles']
+    else:
+        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
+
 def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
     os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
     
@@ -108,7 +138,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             "link_url": "#"
         }
     
-    # 실시간 뉴스 가져오기
+    # 실시간 뉴스 가져오기 - 일반 뉴스
     news_info = ""
     try:
         # 무료 플랜은 최근 1주일 정도의 데이터만 접근 가능하므로 days=7로 설정
@@ -130,15 +160,45 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         news_info = f"실시간 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
         st.error(f"뉴스 API 오류: {str(e)}")
     
+    # OpenAI 관련 뉴스 가져오기
+    openai_news_info = ""
+    try:
+        # OpenAI 관련 뉴스 검색
+        openai_articles = fetch_real_time_news(news_api_key, query="OpenAI", days=7, language=language)
+        # 상위 3개 뉴스 선택
+        top_openai_news = openai_articles[:3]
+        
+        # GPT-4에 전달할 OpenAI 뉴스 정보 준비
+        openai_news_info = "최근 7일 내 수집된 OpenAI 관련 뉴스 기사:\n\n"
+        for i, article in enumerate(top_openai_news):
+            # 날짜 포맷 변환
+            pub_date = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')).strftime('%Y년 %m월 %d일')
+            openai_news_info += f"{i+1}. 제목: {article['title']}\n"
+            openai_news_info += f"   날짜: {pub_date}\n"
+            openai_news_info += f"   요약: {article['description']}\n"
+            openai_news_info += f"   출처: {article['source']['name']}\n"
+            openai_news_info += f"   URL: {article['url']}\n\n"
+    except Exception as e:
+        openai_news_info = f"OpenAI 관련 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
+        st.error(f"OpenAI 뉴스 API 오류: {str(e)}")
+    
     prompts = {
         'main_news': f"""
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
-        오늘 날짜는 {date}입니다. 아래는 최근 7일 이내의 실제 뉴스 기사입니다:
+        오늘 날짜는 {date}입니다. 아래는 두 종류의 뉴스 기사입니다:
         
+        === OpenAI 관련 뉴스 ===
+        {openai_news_info}
+        
+        === 일반 뉴스 ===
         {news_info}
         
-        위 뉴스 기사 중 가장 중요하고 관련성 높은 3가지 주요 소식을 선택하여 다음 형식으로 작성해주세요:
+        총 2개의 주요 소식을 다음 형식으로 작성해주세요:
         
+        1. 먼저 OpenAI 관련 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
+        2. 그 다음 일반 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
+        
+        각 소식은 다음 형식으로 작성해주세요:
         ## [주제]의 [핵심 강점/특징]은 [주목할만합니다/확인됐습니다/중요합니다].
         
         간략한 내용을 1-2문장으로 작성하세요. 내용은 특정 기술이나 서비스, 기업의 최신 소식을 다루고, 
@@ -173,6 +233,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         마지막에 "다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다."라는 문장을 추가해주세요.
         """,
 
+        # 다른 프롬프트들은 변경 없음
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
         한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
@@ -454,7 +515,7 @@ def main():
         # 뉴스 검색 설정
         news_query = st.text_input(
             "뉴스 검색어", 
-            value="AI digital transformation OR artificial intelligence OR machine learning",
+            value="Telecommunication AND AI digital transformation AND artificial intelligence",
             help="뉴스 API 검색어를 입력하세요. OR, AND 등의 연산자를 사용할 수 있습니다."
         )
         

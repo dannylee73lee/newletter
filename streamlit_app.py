@@ -373,9 +373,9 @@ def create_newsletter():
                         <p>제{issue_number}호 | {issue_date.strftime('%Y년 %m월 %d일')}</p>
                     </div>
                     
-                    {f'<div class="section"><h2>🔔 주요 소식</h2><p>{news_content.replace(chr(10), "<br>")}</p><p><strong>{news_title}</strong> <a href="{news_link}" target="_blank">자세히 보기</a></p></div>' if include_news else ''}
+                    {f'''<div class="section"><h2>🔔 주요 소식</h2><p>{news_content.replace(chr(10), "<br>")}</p><p><strong>{news_title}</strong> <a href="{news_link}" target="_blank">자세히 보기</a></p></div>''' if include_news else ''}
                     
-                    {f"""<div class="section">
+                    {f'''<div class="section">
                         <h2>💡 이번 주 AIDT 팁</h2>
                         <h3>{tips_title}</h3>
                         <p>{tips_intro}</p>
@@ -386,9 +386,9 @@ def create_newsletter():
                             <strong>오늘의 공유 팁</strong><br>
                             {share_tip.replace(chr(10), '<br>')}
                         </div>
-                    </div>""" if include_tips else ''}
+                    </div>''' if include_tips else ''}
                     
-                    {f"""<div class="section">
+                    {f'''<div class="section">
                         <h2>🏆 성공 사례</h2>
                         <div class="success-story">
                             <h3>{success_title}</h3>
@@ -397,9 +397,9 @@ def create_newsletter():
                             <p><strong>결과:</strong> {success_result}</p>
                             <p class="quote">"{success_quote}" - {success_quote_author}</p>
                         </div>
-                    </div>""" if include_success else ''}
+                    </div>''' if include_success else ''}
                     
-                    {f"""<div class="section">
+                    {f'''<div class="section">
                         <h2>❓ 질문 & 답변</h2>
                         <div class="q-and-a">
                             <p class="question">Q: {qna_question}</p>
@@ -408,9 +408,9 @@ def create_newsletter():
                                 <a href="{qna_link}" class="button">질문 제출하기</a>
                             </p>
                         </div>
-                    </div>""" if include_qna else ''}
+                    </div>''' if include_qna else ''}
                     
-                    {f"""<div class="section">
+                    {f'''<div class="section">
                         <h2>📅 다가오는 이벤트</h2>
                         <div class="events">
                             <p><strong>{event_date}</strong> - {event_title}</p>
@@ -419,12 +419,12 @@ def create_newsletter():
                                 <a href="{event_link}" class="button">일정 확인하기</a>
                             </p>
                         </div>
-                    </div>""" if include_events else ''}
+                    </div>''' if include_events else ''}
                     
-                    {f"""<div class="tip-box">
+                    {f'''<div class="tip-box">
                         <h3>AI 사용 시 주의사항</h3>
                         <p>{caution_content}</p>
-                    </div>""" if include_caution else ''}
+                    </div>''' if include_caution else ''}
                     
                     <div class="footer">
                         <p>이 뉴스레터는 매주 월요일에 발송됩니다.<br>

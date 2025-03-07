@@ -36,172 +36,7 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def get_preview_html():
-    """미리보기 HTML을 생성합니다."""
-    date = datetime.now().strftime('%Y년 %m월 %d일')
-    issue_number = 1
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AIDT Weekly - 미리보기</title>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                margin: 0;
-                padding: 0;
-                background-color: #f9f9f9;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-            }}
-            .content {{
-                padding: 20px;
-            }}
-            .header {{
-                background-color: #3498db;
-                color: white;
-                padding: 20px;
-                text-align: center;
-            }}
-            .title {{
-                margin: 0;
-                font-size: 24px;
-                font-weight: bold;
-            }}
-            .issue-date {{
-                margin-top: 5px;
-                font-size: 14px;
-            }}
-            .section {{
-                margin-bottom: 25px;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 20px;
-            }}
-            .section:last-child {{
-                border-bottom: none;
-            }}
-            .section-title {{
-                color: #3498db;
-                font-size: 18px;
-                font-weight: bold;
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-            }}
-            .section-icon {{
-                margin-right: 8px;
-            }}
-            h3 {{
-                font-size: 16px;
-                margin-bottom: 5px;
-                color: #2c3e50;
-            }}
-            p {{
-                margin: 0 0 10px;
-            }}
-            ul {{
-                padding-left: 20px;
-                margin-top: 5px;
-                margin-bottom: 10px;
-            }}
-            li {{
-                margin-bottom: 5px;
-            }}
-            .footer {{
-                background-color: #f1f1f1;
-                padding: 15px;
-                text-align: center;
-                font-size: 12px;
-                color: #666;
-            }}
-            .preview-badge {{
-                background-color: #ff7f50;
-                color: white;
-                padding: 3px 8px;
-                border-radius: 4px;
-                font-size: 12px;
-                margin-left: 10px;
-                vertical-align: middle;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="title">AIDT Weekly <span class="preview-badge">미리보기</span></div>
-                <div class="issue-date">제{issue_number}호 | {date}</div>
-            </div>
-            
-            <div class="content">
-                <div class="section">
-                    <div class="section-title"><span class="section-icon">🔔</span> 주요 소식</div>
-                    <h3>OpenAI, GPT-5 개발 계획 발표</h3>
-                    <p>OpenAI가 차세대 모델인 GPT-5의 개발 계획을 공개했습니다. 새 모델은 멀티모달 기능을 강화하고 더 긴 컨텍스트를 처리할 수 있게 됩니다.</p>
-                    <p>기업들은 더 정확하고 맥락을 이해하는 AI 솔루션을 도입할 수 있게 될 것으로 예상됩니다.</p>
-                    
-                    <h3>EU, AI 규제 프레임워크 확정</h3>
-                    <p>유럽연합이 AI 규제에 관한 최종 프레임워크를 확정했습니다. 이는 AI 개발과 사용에 대한 새로운 표준을 제시합니다.</p>
-                    <p>글로벌 기업들은 EU 시장 진출을 위해 새로운 규제를 준수해야 합니다.</p>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title"><span class="section-icon">💡</span> 이번 주 AIDT 팁</div>
-                    <h3>프롬프트 엔지니어링 마스터하기</h3>
-                    <p>AI 모델에서 최상의 결과를 얻기 위한 프롬프트 작성법을 알아봅니다.</p>
-                    <p><strong>실행 단계:</strong></p>
-                    <ul>
-                        <li>명확한 목표 설정하기</li>
-                        <li>구체적인 지시사항 포함하기</li>
-                        <li>예시 추가하기</li>
-                    </ul>
-                    <p>이 팁을 활용하면 AI 모델의 출력 품질이 크게 향상되고 작업 시간을 단축할 수 있습니다.</p>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title"><span class="section-icon">🏆</span> 성공 사례</div>
-                    <h3>현대자동차의 AI 활용 성공 사례</h3>
-                    <p><strong>배경:</strong> 생산 라인의 효율성과 품질 관리 향상이 필요했습니다.</p>
-                    <p><strong>솔루션:</strong> 컴퓨터 비전 AI를 도입하여 자동차 부품 검사 자동화 시스템을 구축했습니다.</p>
-                    <p><strong>결과:</strong> 불량률 30% 감소, 검사 시간 50% 단축, 연간 비용 20억 원 절감을 달성했습니다.</p>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title"><span class="section-icon">📅</span> 다가오는 이벤트</div>
-                    <h3>컨퍼런스 및 워크샵</h3>
-                    <p><strong>AI Seoul 2025</strong> - 2025년 4월 15-17일 - COEX</p>
-                    <p>한국 최대 AI 컨퍼런스로, 국내외 AI 전문가들의 강연과 네트워킹 기회 제공</p>
-                    
-                    <h3>웨비나</h3>
-                    <p><strong>생성형 AI와 비즈니스 혁신</strong> - 2025년 3월 25일 오후 2시</p>
-                    <p>기업 환경에서 생성형 AI를 효과적으로 활용하는 방법에 대한 웨비나</p>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title"><span class="section-icon">❓</span> 질문 & 답변</div>
-                    <p><strong>Q: 중소기업이 AI를 도입할 때 가장 주의해야 할 점은 무엇인가요?</strong></p>
-                    <p><strong>A:</strong> 중소기업이 AI를 도입할 때는 명확한 목표 설정, 현실적인 기대치, 그리고 단계적 접근이 중요합니다. 모든 프로세스를 한 번에 자동화하려 하기보다 가장 효과가 큰 영역부터 시작하는 것이 좋습니다.</p>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 실제 생성된 뉴스레터는 이와 다를 수 있습니다.</p>
-                <p>이 미리보기는 예시 콘텐츠로, 실제 생성 시 최신 AI 관련 내용으로 업데이트됩니다.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html_content
-
-def generate_newsletter(api_key):
+def generate_newsletter(api_key, custom_success_story=None):
     os.environ["OPENAI_API_KEY"] = api_key  # API 키 설정
     
     # 클라이언트 초기화
@@ -240,15 +75,28 @@ def generate_newsletter(api_key):
         """,
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
+        한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
+        각 사례는 제목과 3개의 단락으로 구성되어야 합니다.
+        각 단락은 3~4줄로 구성하고, 구체적인 내용과 핵심 정보를 포함해야 합니다.
+        단락 사이에는 한 줄을 띄워서 가독성을 높여주세요.
+        
         형식:
         
-        ## 회사/기관 이름의 AI 활용 사례
+        ## [한국 기업명]의 AI 혁신 사례
         
-        **배경:** 한 문장으로 배경 설명
+        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
         
-        **솔루션:** 한 문장으로 도입한 AI 기술 설명
+        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
         
-        **결과:** 구체적인 수치로 성과 요약 (예: 30% 비용 절감, 40% 시간 단축 등)
+        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
+        
+        ## [외국 기업명]의 AI 혁신 사례
+        
+        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
+        
+        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
+        
+        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
         """,
         'events': f"""
         AIDT Weekly 뉴스레터의 '다가오는 이벤트' 섹션을 생성해주세요.
@@ -279,6 +127,11 @@ def generate_newsletter(api_key):
     
     for section, prompt in prompts.items():
         try:
+            # 사용자가 입력한 성공 사례가 있으면 생성 건너뛰기
+            if section == 'success_story' and custom_success_story:
+                newsletter_content[section] = convert_markdown_to_html(custom_success_story)
+                continue
+                
             response = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 messages=[
@@ -354,6 +207,12 @@ def generate_newsletter(api_key):
                 margin-bottom: 5px;
                 color: #2c3e50;
             }}
+            /* 성공 사례 스타일 변경 */
+            .success-case p {{
+                margin: 0 0 10px;
+                padding-left: 30px; /* 3칸 들여쓰기 */
+                font-size: 10pt; /* 글자 크기 10pt */
+            }}
             p {{
                 margin: 0 0 10px;
             }}
@@ -392,7 +251,7 @@ def generate_newsletter(api_key):
                     {newsletter_content['aidt_tips']}
                 </div>
                 
-                <div class="section">
+                <div class="section success-case">
                     <div class="section-title"><span class="section-icon">🏆</span> 성공 사례</div>
                     {newsletter_content['success_story']}
                 </div>
@@ -428,43 +287,57 @@ def main():
     st.title("AIDT 뉴스레터 생성기")
     st.write("GPT-4를 활용하여 AI 디지털 트랜스포메이션 관련 뉴스레터를 자동으로 생성합니다.")
     
-    # 탭 생성
-    tab1, tab2 = st.tabs(["뉴스레터 생성", "미리보기"])
+    # OpenAI API 키 입력
+    api_key = st.text_input("OpenAI API 키 입력", type="password")
     
-    with tab1:
-        api_key = st.text_input("OpenAI API 키 입력", type="password")
-        
-        if st.button("뉴스레터 생성"):
-            if not api_key:
-                st.error("API 키를 입력하세요.")
-            else:
-                with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
-                    try:
-                        html_content = generate_newsletter(api_key)
-                        filename = f"AIDT_Weekly_{datetime.now().strftime('%Y%m%d')}.html"
-                        
-                        st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
-                        st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
-                        
-                        # 미리보기 표시 (iframe 사용)
-                        st.subheader("생성된 뉴스레터")
-                        st.markdown(
-                            f'<iframe srcdoc="{html_content.replace(chr(34), chr(39))}" width="100%" height="600" frameborder="0"></iframe>',
-                            unsafe_allow_html=True
-                        )
-                    except Exception as e:
-                        st.error(f"오류가 발생했습니다: {e}")
+    # 성공 사례 사용자 입력 옵션
+    use_custom_success = st.checkbox("성공 사례를 직접 입력하시겠습니까?")
     
-    with tab2:
-        st.subheader("뉴스레터 레이아웃 미리보기")
-        st.write("아래는 뉴스레터가 어떻게 보이는지 예시로 보여주는 미리보기입니다.")
+    custom_success_story = None
+    if use_custom_success:
+        st.write("아래에 성공 사례를 마크다운 형식으로 입력하세요. 한국 기업과 외국 기업 사례 각 1개씩 포함해주세요.")
+        st.write("각 사례는 3개의 단락으로 구성하고, 단락당 3-4줄로 작성해주세요.")
+        st.write("예시 형식:")
+        st.code("""
+## 삼성전자의 AI 혁신 사례
+
+첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+
+두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+
+세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+
+## Google의 AI 혁신 사례
+
+첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+
+두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+
+세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
+        """)
         
-        # 미리보기 HTML (iframe 사용)
-        preview_html = get_preview_html()
-        st.markdown(
-            f'<iframe srcdoc="{preview_html.replace(chr(34), chr(39))}" width="100%" height="600" frameborder="0"></iframe>',
-            unsafe_allow_html=True
-        )
+        custom_success_story = st.text_area("성공 사례 직접 입력", height=400)
+    
+    if st.button("뉴스레터 생성"):
+        if not api_key:
+            st.error("API 키를 입력하세요.")
+        else:
+            with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
+                try:
+                    html_content = generate_newsletter(api_key, custom_success_story if use_custom_success else None)
+                    filename = f"AIDT_Weekly_{datetime.now().strftime('%Y%m%d')}.html"
+                    
+                    st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
+                    st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
+                    
+                    # 미리보기 표시 (iframe 사용)
+                    st.subheader("생성된 뉴스레터")
+                    st.markdown(
+                        f'<iframe srcdoc="{html_content.replace(chr(34), chr(39))}" width="100%" height="600" frameborder="0"></iframe>',
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    st.error(f"오류가 발생했습니다: {e}")
 
 if __name__ == "__main__":
     main()

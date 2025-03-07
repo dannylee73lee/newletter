@@ -9,6 +9,25 @@ import requests
 
 def convert_markdown_to_html(text):
     """마크다운 텍스트를 HTML로 변환합니다."""
+    # AT/DT 팁 섹션 특별 처리 - 내용은 유지하면서 스타일만 변경
+    if "이번 주 팁:" in text or "핵심 프롬프트 예시" in text:
+        # "이번 주 팁:" 제목을 특별 클래스로 처리
+        text = re.sub(r'^## 이번 주 팁: (.*?)$', r'<div class="tip-title">이번 주 팁: \1</div>', text, flags=re.MULTILINE)
+        
+        # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
+        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
+        
+        # 글머리 기호 (- 항목) 처리 - 프롬프트 예시 특별 처리
+        prompt_examples = re.findall(r'^\- (.*?)$', text, flags=re.MULTILINE)
+        for example in prompt_examples:
+            # 내용은 유지하면서 클래스만 추가
+            formatted_example = f'<div class="prompt-example"><div class="prompt-example-title">- {example}</div></div>'
+            text = text.replace(f"- {example}", formatted_example)
+        
+        # 마지막 문장 스타일 적용 (약간의 여백과 이탤릭체)
+        if "다음 주에는" in text:
+            text = re.sub(r'(다음 주에는.*?\.)', r'<div class="tip-footer">\1</div>', text)
+    
     # 제목 변환 (# 제목)
     text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
     text = re.sub(r'^## (.*)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
@@ -23,26 +42,8 @@ def convert_markdown_to_html(text):
     # 링크 변환 ([텍스트](URL))
     text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     
-    # AT/DT 팁 섹션 특별 처리
-    if "이번 주 팁:" in text:
-        # "이번 주 팁:" 제목을 특별 클래스로 처리
-        text = re.sub(r'^## 이번 주 팁: (.*?)$', r'<div class="tip-title">이번 주 팁: \1</div>', text, flags=re.MULTILINE)
-        
-        # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
-        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
-        
-        # 글머리 기호 (- 항목) 처리 - 프롬프트 예시 특별 처리
-        prompt_examples = re.findall(r'^\- \[(.*?)\]: (.*?)$', text, flags=re.MULTILINE)
-        for title, content in prompt_examples:
-            # 각 예시를 특별 클래스로 포맷팅
-            formatted_example = f'<div class="prompt-example"><div class="prompt-example-title">- {title}</div><div class="prompt-example-content">{content}</div></div>'
-            text = text.replace(f"- [{title}]: {content}", formatted_example)
-        
-        # 마지막 문장 스타일 적용
-        if "다음 주에는" in text:
-            text = re.sub(r'(다음 주에는.*?\.)', r'<div class="tip-footer">\1</div>', text)
-    else:
-        # 일반적인 글머리 기호 (- 항목) 처리
+    # 일반적인 글머리 기호 (- 항목) 처리 (이미 처리된 AT/DT 팁 예시는 제외)
+    if "prompt-example-title" not in text:
         text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
     
     # 색상 표시 강조 - 주요 소식에서 사용할 수 있는 색상 강조 기능
@@ -61,6 +62,36 @@ def convert_markdown_to_html(text):
         paragraphs[i] = paragraph.replace('\n', '<br>')
     
     return ''.join(paragraphs)
+
+def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
+    """
+    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
+    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
+    """
+    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
+    end_date = datetime.now()
+    # 무료 플랜 제한을 고려하여 기간을 줄임
+    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
+    
+    # NewsAPI 요청
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        'q': query,
+        'from': start_date.strftime('%Y-%m-%d'),
+        'to': end_date.strftime('%Y-%m-%d'),
+        'sortBy': 'publishedAt',
+        'language': language,
+        'apiKey': api_key
+    }
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code == 200:
+        news_data = response.json()
+        return news_data['articles']
+    else:
+        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
+
 
 def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
     """
@@ -213,15 +244,16 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         팁에 대한 배경과 중요성을 2-3문장으로 간결하게 설명해주세요. AI 기본기와 관련된 내용을 포함하세요.
         
         **핵심 프롬프트 예시:**
-        - [첫 번째 프롬프트 제목]: [첫 번째 프롬프트 템플릿 예시]
-        - [두 번째 프롬프트 제목]: [두 번째 프롬프트 템플릿 예시]
-        - [세 번째 프롬프트 제목]: [세 번째 프롬프트 템플릿 예시]
+        - 첫 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        - 두 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        - 세 번째 프롬프트 템플릿 (구체적인 예시와 함께)
         
         이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
         
-        다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
+        마지막에 "다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다."라는 문장을 추가해주세요.
         """,
 
+        # 다른 프롬프트들은 변경 없음
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
         한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
@@ -644,3 +676,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

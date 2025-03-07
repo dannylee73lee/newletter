@@ -23,8 +23,27 @@ def convert_markdown_to_html(text):
     # 링크 변환 ([텍스트](URL))
     text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     
-    # 글머리 기호 (- 항목)
-    text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
+    # AT/DT 팁 섹션 특별 처리
+    if "이번 주 팁:" in text:
+        # "이번 주 팁:" 제목을 특별 클래스로 처리
+        text = re.sub(r'^## 이번 주 팁: (.*?)$', r'<div class="tip-title">이번 주 팁: \1</div>', text, flags=re.MULTILINE)
+        
+        # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
+        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
+        
+        # 글머리 기호 (- 항목) 처리 - 프롬프트 예시 특별 처리
+        prompt_examples = re.findall(r'^\- \[(.*?)\]: (.*?)$', text, flags=re.MULTILINE)
+        for title, content in prompt_examples:
+            # 각 예시를 특별 클래스로 포맷팅
+            formatted_example = f'<div class="prompt-example"><div class="prompt-example-title">- {title}</div><div class="prompt-example-content">{content}</div></div>'
+            text = text.replace(f"- [{title}]: {content}", formatted_example)
+        
+        # 마지막 문장 스타일 적용
+        if "다음 주에는" in text:
+            text = re.sub(r'(다음 주에는.*?\.)', r'<div class="tip-footer">\1</div>', text)
+    else:
+        # 일반적인 글머리 기호 (- 항목) 처리
+        text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
     
     # 색상 표시 강조 - 주요 소식에서 사용할 수 있는 색상 강조 기능
     text = re.sub(r'\[강조\](.*?)\[\/강조\]', r'<span style="color:#e74c3c; font-weight:bold;">\1</span>', text)
@@ -32,7 +51,7 @@ def convert_markdown_to_html(text):
     # 줄바꿈을 <br>과 <p>로 변환
     paragraphs = text.split('\n\n')
     for i, paragraph in enumerate(paragraphs):
-        if not paragraph.startswith('<h') and not paragraph.startswith('<li'):
+        if not paragraph.startswith('<h') and not paragraph.startswith('<li') and not paragraph.startswith('<div'):
             # 이미 HTML 태그가 아닌 경우만 <p> 태그로 감싸기
             if '<li>' in paragraph:
                 # 리스트 항목이 있는 경우 <ul> 태그로 감싸기
@@ -42,36 +61,6 @@ def convert_markdown_to_html(text):
         paragraphs[i] = paragraph.replace('\n', '<br>')
     
     return ''.join(paragraphs)
-
-def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
-    """
-    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
-    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
-    """
-    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
-    end_date = datetime.now()
-    # 무료 플랜 제한을 고려하여 기간을 줄임
-    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
-    
-    # NewsAPI 요청
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        'q': query,
-        'from': start_date.strftime('%Y-%m-%d'),
-        'to': end_date.strftime('%Y-%m-%d'),
-        'sortBy': 'publishedAt',
-        'language': language,
-        'apiKey': api_key
-    }
-    
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        news_data = response.json()
-        return news_data['articles']
-    else:
-        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
-
 
 def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
     """
@@ -224,16 +213,15 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         팁에 대한 배경과 중요성을 2-3문장으로 간결하게 설명해주세요. AI 기본기와 관련된 내용을 포함하세요.
         
         **핵심 프롬프트 예시:**
-        - 첫 번째 프롬프트 템플릿 (구체적인 예시와 함께)
-        - 두 번째 프롬프트 템플릿 (구체적인 예시와 함께)
-        - 세 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        - [첫 번째 프롬프트 제목]: [첫 번째 프롬프트 템플릿 예시]
+        - [두 번째 프롬프트 제목]: [두 번째 프롬프트 템플릿 예시]
+        - [세 번째 프롬프트 제목]: [세 번째 프롬프트 템플릿 예시]
         
         이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
         
-        마지막에 "다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다."라는 문장을 추가해주세요.
+        다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
         """,
 
-        # 다른 프롬프트들은 변경 없음
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
         한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
@@ -426,6 +414,48 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 text-align: center;
                 margin-bottom: 15px;
             }}
+            
+            /* AIDT 팁 섹션 스타일 */
+            .aidt-tips {{
+                font-size: 10pt;
+            }}
+            
+            .tip-title {{
+                background-color: #f2f2f2;
+                padding: 8px 10px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            
+            .prompt-examples-title {{
+                background-color: #f2f2f2;
+                padding: 8px 10px;
+                margin: 15px 0 10px 0;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            
+            .prompt-example {{
+                margin-left: 15px;
+                margin-bottom: 12px;
+            }}
+            
+            .prompt-example-title {{
+                color: #ff5722;
+                font-weight: bold;
+                margin-bottom: 4px;
+            }}
+            
+            .prompt-example-content {{
+                margin-left: 5px;
+                margin-bottom: 8px;
+            }}
+            
+            .tip-footer {{
+                margin-top: 15px;
+                font-style: italic;
+            }}
         </style>
     </head>
     <body>
@@ -455,7 +485,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 
                 <div class="section">
                     <div class="section-title">이번 주 AT/DT 팁</div>
-                    <div class="section-container">
+                    <div class="section-container aidt-tips">
                         {newsletter_content['aidt_tips']}
                     </div>
                 </div>
@@ -614,4 +644,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

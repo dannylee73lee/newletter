@@ -6,12 +6,6 @@ import base64
 import os
 import re
 
-# components 모듈을 명시적으로 임포트
-try:
-    import streamlit.components.v1 as components
-except ImportError:
-    st.error("streamlit.components.v1 모듈을 임포트할 수 없습니다. Streamlit을 최신 버전으로 업데이트해 보세요.")
-
 def convert_markdown_to_html(text):
     """마크다운 텍스트를 HTML로 변환합니다."""
     # 제목 변환 (# 제목)
@@ -59,117 +53,143 @@ def get_preview_html():
                 font-family: 'Segoe UI', Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
+                margin: 0;
+                padding: 0;
                 background-color: #f9f9f9;
             }}
             .container {{
+                max-width: 600px;
+                margin: 0 auto;
                 background-color: #ffffff;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }}
+            .content {{
+                padding: 20px;
+            }}
+            .header {{
+                background-color: #3498db;
+                color: white;
+                padding: 20px;
+                text-align: center;
+            }}
+            .title {{
+                margin: 0;
+                font-size: 24px;
+                font-weight: bold;
+            }}
+            .issue-date {{
+                margin-top: 5px;
+                font-size: 14px;
+            }}
+            .section {{
+                margin-bottom: 25px;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 20px;
+            }}
+            .section:last-child {{
+                border-bottom: none;
+            }}
+            .section-title {{
+                color: #3498db;
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+            }}
+            .section-icon {{
+                margin-right: 8px;
+            }}
+            h3 {{
+                font-size: 16px;
+                margin-bottom: 5px;
+                color: #2c3e50;
+            }}
+            p {{
+                margin: 0 0 10px;
+            }}
+            ul {{
+                padding-left: 20px;
+                margin-top: 5px;
+                margin-bottom: 10px;
+            }}
+            li {{
+                margin-bottom: 5px;
+            }}
+            .footer {{
+                background-color: #f1f1f1;
+                padding: 15px;
+                text-align: center;
+                font-size: 12px;
+                color: #666;
             }}
             .preview-badge {{
                 background-color: #ff7f50;
                 color: white;
-                padding: 5px 10px;
+                padding: 3px 8px;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 12px;
                 margin-left: 10px;
                 vertical-align: middle;
-            }}
-            header {{
-                text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 2px solid #3498db;
-                padding-bottom: 10px;
-            }}
-            h1 {{
-                color: #2c3e50;
-                font-size: 28px;
-                margin-bottom: 10px;
-            }}
-            .issue-date {{
-                color: #7f8c8d;
-                font-size: 16px;
-                margin-bottom: 20px;
-            }}
-            section {{
-                margin-bottom: 40px;
-            }}
-            h2 {{
-                color: #3498db;
-                font-size: 22px;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 10px;
-                margin-top: 30px;
-            }}
-            p {{
-                margin-bottom: 15px;
-            }}
-            ul {{
-                padding-left: 20px;
-            }}
-            li {{
-                margin-bottom: 10px;
-            }}
-            strong {{
-                color: #2c3e50;
-            }}
-            .footer {{
-                text-align: center;
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #eee;
-                color: #7f8c8d;
-                font-size: 14px;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <header>
-                <h1>AIDT Weekly <span class="preview-badge">미리보기</span></h1>
+            <div class="header">
+                <div class="title">AIDT Weekly <span class="preview-badge">미리보기</span></div>
                 <div class="issue-date">제{issue_number}호 | {date}</div>
-            </header>
+            </div>
             
-            <section>
-                <h2>🔔 주요 소식</h2>
-                <h2>주요소식 1</h2>
-                <ul>
-                <li>제목: OpenAI, GPT-5 개발 계획 발표</li>
-                <li>내용: OpenAI가 차세대 모델인 GPT-5의 개발 계획을 공개했습니다.</li>
-                <li>효과: 기업들은 더 정확하고 맥락을 이해하는 AI 솔루션을 도입할 수 있게 될 것입니다.</li>
-                </ul>
-            </section>
-            
-            <section>
-                <h2>💡 이번 주 AIDT 팁</h2>
-                <h2>이번 주 팁: 프롬프트 엔지니어링 마스터하기</h2>
-                <p>AI 모델에서 최상의 결과를 얻기 위한 프롬프트 작성법을 알아봅니다.</p>
-            </section>
-            
-            <section>
-                <h2>🏆 성공 사례</h2>
-                <h2>현대자동차의 AI 활용 성공 사례</h2>
-                <p><strong>배경:</strong> 생산 라인의 효율성과 품질 관리 향상이 필요했습니다.</p>
-                <p><strong>결과:</strong> 불량률 30% 감소, 검사 시간 50% 단축을 달성했습니다.</p>
-            </section>
-            
-            <section>
-                <h2>📅 다가오는 이벤트</h2>
-                <h2>컨퍼런스 및 워크샵</h2>
-                <ul>
-                <li><strong>AI Seoul 2025</strong> - 2025년 4월 15-17일 - COEX</li>
-                </ul>
-            </section>
-            
-            <section>
-                <h2>❓ 질문 & 답변</h2>
-                <p><strong>Q: 중소기업이 AI를 도입할 때 가장 주의해야 할 점은 무엇인가요?</strong></p>
-                <p><strong>A:</strong> 중소기업이 AI를 도입할 때는 명확한 목표 설정, 현실적인 기대치, 그리고 단계적 접근이 중요합니다.</p>
-            </section>
+            <div class="content">
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">🔔</span> 주요 소식</div>
+                    <h3>OpenAI, GPT-5 개발 계획 발표</h3>
+                    <p>OpenAI가 차세대 모델인 GPT-5의 개발 계획을 공개했습니다. 새 모델은 멀티모달 기능을 강화하고 더 긴 컨텍스트를 처리할 수 있게 됩니다.</p>
+                    <p>기업들은 더 정확하고 맥락을 이해하는 AI 솔루션을 도입할 수 있게 될 것으로 예상됩니다.</p>
+                    
+                    <h3>EU, AI 규제 프레임워크 확정</h3>
+                    <p>유럽연합이 AI 규제에 관한 최종 프레임워크를 확정했습니다. 이는 AI 개발과 사용에 대한 새로운 표준을 제시합니다.</p>
+                    <p>글로벌 기업들은 EU 시장 진출을 위해 새로운 규제를 준수해야 합니다.</p>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">💡</span> 이번 주 AIDT 팁</div>
+                    <h3>프롬프트 엔지니어링 마스터하기</h3>
+                    <p>AI 모델에서 최상의 결과를 얻기 위한 프롬프트 작성법을 알아봅니다.</p>
+                    <p><strong>실행 단계:</strong></p>
+                    <ul>
+                        <li>명확한 목표 설정하기</li>
+                        <li>구체적인 지시사항 포함하기</li>
+                        <li>예시 추가하기</li>
+                    </ul>
+                    <p>이 팁을 활용하면 AI 모델의 출력 품질이 크게 향상되고 작업 시간을 단축할 수 있습니다.</p>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">🏆</span> 성공 사례</div>
+                    <h3>현대자동차의 AI 활용 성공 사례</h3>
+                    <p><strong>배경:</strong> 생산 라인의 효율성과 품질 관리 향상이 필요했습니다.</p>
+                    <p><strong>솔루션:</strong> 컴퓨터 비전 AI를 도입하여 자동차 부품 검사 자동화 시스템을 구축했습니다.</p>
+                    <p><strong>결과:</strong> 불량률 30% 감소, 검사 시간 50% 단축, 연간 비용 20억 원 절감을 달성했습니다.</p>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">📅</span> 다가오는 이벤트</div>
+                    <h3>컨퍼런스 및 워크샵</h3>
+                    <p><strong>AI Seoul 2025</strong> - 2025년 4월 15-17일 - COEX</p>
+                    <p>한국 최대 AI 컨퍼런스로, 국내외 AI 전문가들의 강연과 네트워킹 기회 제공</p>
+                    
+                    <h3>웨비나</h3>
+                    <p><strong>생성형 AI와 비즈니스 혁신</strong> - 2025년 3월 25일 오후 2시</p>
+                    <p>기업 환경에서 생성형 AI를 효과적으로 활용하는 방법에 대한 웨비나</p>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">❓</span> 질문 & 답변</div>
+                    <p><strong>Q: 중소기업이 AI를 도입할 때 가장 주의해야 할 점은 무엇인가요?</strong></p>
+                    <p><strong>A:</strong> 중소기업이 AI를 도입할 때는 명확한 목표 설정, 현실적인 기대치, 그리고 단계적 접근이 중요합니다. 모든 프로세스를 한 번에 자동화하려 하기보다 가장 효과가 큰 영역부터 시작하는 것이 좋습니다.</p>
+                </div>
+            </div>
             
             <div class="footer">
                 <p>© {datetime.now().year} AIDT Weekly | 실제 생성된 뉴스레터는 이와 다를 수 있습니다.</p>
@@ -195,77 +215,63 @@ def generate_newsletter(api_key):
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
         형식:
         
-        ## 주요소식 1
-        - 제목: [AI 관련 새로운 소식]
-        - 내용: [구체적인 내용]
-        - 효과: [도입 효과나 의의]
+        ## 첫 번째 소식 제목
+        내용을 1-2문장으로 간략하게 작성하세요. 핵심 내용만 포함해주세요.
+        영향이나 중요성을 한 문장으로 추가해주세요.
         
-        ## 주요소식 2
-        - 제목: [다른 AI 관련 소식]
-        - 내용: [구체적인 내용]
-        - 효과: [도입 효과나 의의]
+        ## 두 번째 소식 제목
+        내용을 1-2문장으로 간략하게 작성하세요. 핵심 내용만 포함해주세요.
+        영향이나 중요성을 한 문장으로 추가해주세요.
         """,
         'aidt_tips': """
         AIDT Weekly 뉴스레터의 'AI 활용 팁' 섹션을 생성해주세요.
         형식:
         
-        ## 이번 주 팁: [팁 제목]
+        ## 이번 주 팁: 팁 제목
         
-        [팁에 대한 설명과 활용 방법을 상세히 서술해주세요]
+        팁에 대한 설명을 2-3문장으로 간결하게 작성해주세요.
         
-        **실행 단계:**
-        - 1단계: [설명]
-        - 2단계: [설명]
-        - 3단계: [설명]
+        **핵심 단계:**
+        - 첫 번째 단계
+        - 두 번째 단계
+        - 세 번째 단계
         
-        **이 팁을 활용하면:**
-        - [장점 1]
-        - [장점 2]
+        이 팁을 활용했을 때의 이점을 한 문장으로 작성해주세요.
         """,
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
         형식:
         
-        ## [회사/기관 이름]의 AI 활용 성공 사례
+        ## 회사/기관 이름의 AI 활용 사례
         
-        **배경:** [기업이 직면한 문제 또는 도전 과제]
+        **배경:** 한 문장으로 배경 설명
         
-        **솔루션:** [어떤 AI 기술을 도입했는지]
+        **솔루션:** 한 문장으로 도입한 AI 기술 설명
         
-        **결과:** [구체적인 성과와 비즈니스 효과]
-        
-        **시사점:** [다른 기업들이 배울 수 있는 교훈]
+        **결과:** 구체적인 수치로 성과 요약 (예: 30% 비용 절감, 40% 시간 단축 등)
         """,
         'events': f"""
         AIDT Weekly 뉴스레터의 '다가오는 이벤트' 섹션을 생성해주세요.
         현재 날짜는 {date}입니다.
         형식:
         
-        ## 컨퍼런스 및 워크샵
-        - **[이벤트 이름]** - [날짜] - [장소/온라인]
-          [간단한 설명과 참여 대상]
+        ## 컨퍼런스/웨비나 제목
+        - 날짜/시간: [날짜 정보]
+        - 장소/형식: [장소 또는 온라인 여부]
+        - 내용: 한 문장으로 간략한 설명
         
-        ## 웨비나
-        - **[웨비나 제목]** - [날짜 및 시간]
-          [주제 및 참여 방법]
-        
-        ## 교육 과정
-        - **[과정명]** - [시작 날짜 ~ 종료 날짜]
-          [교육 내용 및 신청 방법]
+        ## 다른 이벤트 제목
+        - 날짜/시간: [날짜 정보]
+        - 장소/형식: [장소 또는 온라인 여부]
+        - 내용: 한 문장으로 간략한 설명
         """,
         'qa': """
         AIDT Weekly 뉴스레터의 'Q&A' 섹션을 생성해주세요.
         형식:
         
-        ## 이번 주 질문
+        ## 간단명료한 질문?
         
-        **Q: [AI 관련 자주 묻는 질문]**
-        
-        **A:** [전문가의 자세한 답변]
-        
-        **추가 자료:**
-        - [관련 자료 링크 또는 설명]
-        - [관련 자료 링크 또는 설명]
+        답변을 2-3문장으로 간결하게 작성해주세요. 불필요한 설명은 제외하고 핵심 정보만 포함해주세요.
         """
     }
     
@@ -276,7 +282,7 @@ def generate_newsletter(api_key):
             response = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 messages=[
-                    {"role": "system", "content": "AI 디지털 트랜스포메이션 뉴스레터 콘텐츠 생성 전문가. 깔끔하고 전문적인 뉴스레터 콘텐츠를 생성합니다."},
+                    {"role": "system", "content": "AI 디지털 트랜스포메이션 뉴스레터 콘텐츠 생성 전문가. 간결하고 핵심적인 내용만 포함한 뉴스레터를 작성합니다."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7
@@ -297,105 +303,113 @@ def generate_newsletter(api_key):
                 font-family: 'Segoe UI', Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
+                margin: 0;
+                padding: 0;
                 background-color: #f9f9f9;
             }}
             .container {{
+                max-width: 600px;
+                margin: 0 auto;
                 background-color: #ffffff;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
             }}
-            header {{
+            .content {{
+                padding: 20px;
+            }}
+            .header {{
+                background-color: #3498db;
+                color: white;
+                padding: 20px;
                 text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 2px solid #3498db;
-                padding-bottom: 10px;
             }}
-            h1 {{
-                color: #2c3e50;
-                font-size: 28px;
-                margin-bottom: 10px;
+            .title {{
+                margin: 0;
+                font-size: 24px;
+                font-weight: bold;
             }}
             .issue-date {{
-                color: #7f8c8d;
-                font-size: 16px;
-                margin-bottom: 20px;
+                margin-top: 5px;
+                font-size: 14px;
             }}
-            section {{
-                margin-bottom: 40px;
-            }}
-            h2 {{
-                color: #3498db;
-                font-size: 22px;
+            .section {{
+                margin-bottom: 25px;
                 border-bottom: 1px solid #eee;
-                padding-bottom: 10px;
-                margin-top: 30px;
+                padding-bottom: 20px;
             }}
-            h3 {{
-                color: #2c3e50;
+            .section:last-child {{
+                border-bottom: none;
+            }}
+            .section-title {{
+                color: #3498db;
                 font-size: 18px;
-                margin-top: 20px;
+                font-weight: bold;
                 margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+            }}
+            .section-icon {{
+                margin-right: 8px;
+            }}
+            h2, h3 {{
+                font-size: 16px;
+                margin-bottom: 5px;
+                color: #2c3e50;
             }}
             p {{
-                margin-bottom: 15px;
+                margin: 0 0 10px;
             }}
             ul {{
                 padding-left: 20px;
-            }}
-            li {{
+                margin-top: 5px;
                 margin-bottom: 10px;
             }}
-            strong {{
-                color: #2c3e50;
+            li {{
+                margin-bottom: 5px;
             }}
             .footer {{
+                background-color: #f1f1f1;
+                padding: 15px;
                 text-align: center;
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #eee;
-                color: #7f8c8d;
-                font-size: 14px;
+                font-size: 12px;
+                color: #666;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <header>
-                <h1>AIDT Weekly</h1>
+            <div class="header">
+                <div class="title">AIDT Weekly</div>
                 <div class="issue-date">제{issue_number}호 | {date}</div>
-            </header>
+            </div>
             
-            <section>
-                <h2>🔔 주요 소식</h2>
-                {newsletter_content['main_news']}
-            </section>
-            
-            <section>
-                <h2>💡 이번 주 AIDT 팁</h2>
-                {newsletter_content['aidt_tips']}
-            </section>
-            
-            <section>
-                <h2>🏆 성공 사례</h2>
-                {newsletter_content['success_story']}
-            </section>
-            
-            <section>
-                <h2>📅 다가오는 이벤트</h2>
-                {newsletter_content['events']}
-            </section>
-            
-            <section>
-                <h2>❓ 질문 & 답변</h2>
-                {newsletter_content['qa']}
-            </section>
+            <div class="content">
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">🔔</span> 주요 소식</div>
+                    {newsletter_content['main_news']}
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">💡</span> 이번 주 AIDT 팁</div>
+                    {newsletter_content['aidt_tips']}
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">🏆</span> 성공 사례</div>
+                    {newsletter_content['success_story']}
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">📅</span> 다가오는 이벤트</div>
+                    {newsletter_content['events']}
+                </div>
+                
+                <div class="section">
+                    <div class="section-title"><span class="section-icon">❓</span> 질문 & 답변</div>
+                    {newsletter_content['qa']}
+                </div>
+            </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 본 뉴스레터를 구독해 주셔서 감사합니다.</p>
+                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
                 <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
             </div>
         </div>
@@ -443,7 +457,7 @@ def main():
     
     with tab2:
         st.subheader("뉴스레터 레이아웃 미리보기")
-        st.write("아래는 뉴스레터가 어떻게 보이는지 예시로 보여주는 미리보기입니다. 실제 생성된 뉴스레터는 최신 AI 관련 내용으로 채워집니다.")
+        st.write("아래는 뉴스레터가 어떻게 보이는지 예시로 보여주는 미리보기입니다.")
         
         # 미리보기 HTML (iframe 사용)
         preview_html = get_preview_html()

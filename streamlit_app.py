@@ -1,13 +1,12 @@
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
-import time
 import base64
-import os
 
 def generate_newsletter(api_key):
-    os.environ["OPENAI_API_KEY"] = api_key  # API 키 설정
-    client = OpenAI()
+    # OpenAI 클라이언트 초기화 (API 키 직접 전달)
+    client = OpenAI(api_key=api_key)
+    
     date = datetime.now().strftime('%Y년 %m월 %d일')
     issue_number = 1
     
@@ -58,20 +57,28 @@ def generate_newsletter(api_key):
     <head>
         <meta charset="UTF-8">
         <title>AIDT Weekly - 제{issue_number}호</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }}
+            h1 {{ color: #2c3e50; }}
+            h2 {{ color: #3498db; border-bottom: 1px solid #eee; padding-bottom: 10px; }}
+            .container {{ max-width: 800px; margin: 0 auto; }}
+        </style>
     </head>
     <body>
-        <h1>AIDT Weekly</h1>
-        <p>제{issue_number}호 | {date}</p>
-        <h2>🔔 주요 소식</h2>
-        <p>{newsletter_content['main_news']}</p>
-        <h2>💡 이번 주 AIDT 팁</h2>
-        <p>{newsletter_content['aidt_tips']}</p>
-        <h2>🏆 성공 사례</h2>
-        <p>{newsletter_content['success_story']}</p>
-        <h2>📅 다가오는 이벤트</h2>
-        <p>{newsletter_content['events']}</p>
-        <h2>❓ 질문 & 답변</h2>
-        <p>{newsletter_content['qa']}</p>
+        <div class="container">
+            <h1>AIDT Weekly</h1>
+            <p>제{issue_number}호 | {date}</p>
+            <h2>🔔 주요 소식</h2>
+            <div>{newsletter_content['main_news'].replace('\n', '<br>')}</div>
+            <h2>💡 이번 주 AIDT 팁</h2>
+            <div>{newsletter_content['aidt_tips'].replace('\n', '<br>')}</div>
+            <h2>🏆 성공 사례</h2>
+            <div>{newsletter_content['success_story'].replace('\n', '<br>')}</div>
+            <h2>📅 다가오는 이벤트</h2>
+            <div>{newsletter_content['events'].replace('\n', '<br>')}</div>
+            <h2>❓ 질문 & 답변</h2>
+            <div>{newsletter_content['qa'].replace('\n', '<br>')}</div>
+        </div>
     </body>
     </html>
     """
@@ -82,17 +89,26 @@ def create_download_link(html_content, filename):
     href = f'<a href="data:text/html;base64,{b64}" download="{filename}">뉴스레터 다운로드</a>'
     return href
 
-def main():
-    st.title("AIDT 뉴스레터 생성기")
-    api_key = st.text_input("OpenAI API 키 입력", type="password")
-    if st.button("뉴스레터 생성"):
-        if not api_key:
-            st.error("API 키를 입력하세요.")
-        else:
-            with st.spinner("뉴스레터 생성 중..."):
+# Streamlit 앱 시작
+st.title("AIDT 뉴스레터 생성기")
+
+# API 키 입력
+api_key = st.text_input("OpenAI API 키 입력", type="password")
+
+# 뉴스레터 생성 버튼
+if st.button("뉴스레터 생성"):
+    if not api_key:
+        st.error("API 키를 입력하세요.")
+    else:
+        with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
+            try:
                 html_content = generate_newsletter(api_key)
                 filename = f"AIDT_Weekly_{datetime.now().strftime('%Y%m%d')}.html"
+                st.success("뉴스레터가 성공적으로 생성되었습니다!")
                 st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+                
+                # 미리보기 표시
+                st.subheader("뉴스레터 미리보기")
+                st.components.v1.html(html_content, height=500, scrolling=True)
+            except Exception as e:
+                st.error(f"오류가 발생했습니다: {e}")

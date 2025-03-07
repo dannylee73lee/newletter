@@ -17,14 +17,19 @@ def convert_markdown_to_html(text):
         # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
         text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
         
-        # 글머리 기호 (- 항목) 처리 - 프롬프트 예시 특별 처리
-        # 원래 내용 추출
+        # 프롬프트 템플릿 (- 항목) 처리 - 서로 다른 템플릿 사이에는 여백을 추가하고, 예시 내부에서는 줄간격을 없앰
         prompt_examples = re.findall(r'^\- (.*?)$', text, flags=re.MULTILINE)
+        
         for i, example in enumerate(prompt_examples):
-            # 예시 항목 사이에 간격 추가를 위한 클래스 적용
+            # 예시 항목 사이에 간격 추가를 위한 클래스 적용 (마지막 항목 제외)
             margin_class = "prompt-example-with-margin" if i < len(prompt_examples) - 1 else "prompt-example"
-            formatted_example = f'<div class="{margin_class}"><div class="prompt-example-title">- {example}</div></div>'
-            text = text.replace(f"- {example}", formatted_example)
+            
+            # 예시 내용에서 줄바꿈이 있다면 처리 (내부 줄간격 줄이기)
+            formatted_example = example.replace('\n', '<br class="no-margin">')
+            
+            formatted_div = f'<div class="{margin_class}"><div class="prompt-example-title">- {formatted_example}</div></div>'
+            # 정확한 원본 텍스트 찾기 위해 멀티라인 플래그 사용
+            text = re.sub(r'- ' + re.escape(example) + r'(\n|$)', formatted_div + r'\1', text, flags=re.MULTILINE)
         
         # 마지막 문장 스타일 적용 (약간의 여백과 이탤릭체)
         if "다음 주에는" in text:
@@ -220,7 +225,9 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         
         **핵심 프롬프트 예시:**
         - 첫 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+
         - 두 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        
         - 세 번째 프롬프트 템플릿 (구체적인 예시와 함께)
         
         이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
@@ -450,7 +457,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
 
             .prompt-example-with-margin {{
                 margin-left: 15px;
-                margin-bottom: 15px; /* 예시 항목 사이에 간격 추가 */
+                margin-bottom: 20px; /* 예시 항목 사이에 간격 추가 */
             }}
 
             .prompt-example-title {{
@@ -458,7 +465,12 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 font-weight: bold;
                 line-height: 1.3; /* 예시 내부 줄 간격 줄이기 */
             }}
-
+            /* 템플릿 내부의 줄바꿈에 대한 특별 처리 */
+            .prompt-example-title br.no-margin {{
+                display: inline; /* 줄바꿈을 inline으로 처리하여 줄간격 없애기 */
+                margin: 0;
+                line-height: 1;
+            }}
             .tip-footer {{
                 margin-top: 15px;
                 font-style: italic;

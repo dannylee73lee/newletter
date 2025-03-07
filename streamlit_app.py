@@ -95,34 +95,6 @@ def fetch_real_time_news(api_key, query="AI digital transformation", days=7, lan
         raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
 
-def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
-    """
-    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
-    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
-    """
-    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
-    end_date = datetime.now()
-    # 무료 플랜 제한을 고려하여 기간을 줄임
-    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
-    
-    # NewsAPI 요청
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        'q': query,
-        'from': start_date.strftime('%Y-%m-%d'),
-        'to': end_date.strftime('%Y-%m-%d'),
-        'sortBy': 'publishedAt',
-        'language': language,
-        'apiKey': api_key
-    }
-    
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        news_data = response.json()
-        return news_data['articles']
-    else:
-        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
 def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
     os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정

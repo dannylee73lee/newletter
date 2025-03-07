@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import streamlit as st
 from openai import OpenAI
 import pandas as pd
+import re
 
 # 페이지 설정
 st.set_page_config(
@@ -13,6 +14,21 @@ st.set_page_config(
     page_icon="📬",
     layout="wide"
 )
+
+# 세션 상태 초기화 - 반드시 다른 코드보다 먼저 실행되어야 합니다
+if 'issue_number' not in st.session_state:
+    st.session_state.issue_number = 1
+if 'newsletter_html' not in st.session_state:
+    st.session_state.newsletter_html = ""
+if 'generated' not in st.session_state:
+    st.session_state.generated = False
+if 'subscribers' not in st.session_state:
+    st.session_state.subscribers = pd.DataFrame({
+        '이메일': ['test1@example.com', 'test2@example.com', 'test3@example.com'],
+        '이름': ['김테스트', '이데모', '박샘플'],
+        '부서': ['마케팅', 'IT', '인사'],
+        '구독일': ['2025-02-01', '2025-02-15', '2025-03-01']
+    })
 
 # 사이드바 생성
 st.sidebar.title("AIDT Weekly 뉴스레터")
@@ -28,14 +44,6 @@ with st.sidebar.expander("API 설정", expanded=True):
 # 메인 페이지 제목
 st.title("AIDT Weekly 뉴스레터 생성기")
 st.markdown("---")
-
-# 세션 상태 초기화
-if 'issue_number' not in st.session_state:
-    st.session_state.issue_number = 1
-if 'newsletter_html' not in st.session_state:
-    st.session_state.newsletter_html = ""
-if 'generated' not in st.session_state:
-    st.session_state.generated = False
 
 # 유틸리티 함수
 def get_openai_client():
@@ -84,14 +92,19 @@ def generate_ai_tip(client):
         팁은 구체적이고 실용적이어야 하며, 직장인이 바로 적용할 수 있는 내용이어야 합니다.
         """
         
+        # 사이드바에서 선택한 모델과 설정값 사용
+        selected_model = model_option if 'model_option' in locals() else "gpt-4"
+        selected_temp = temperature if 'temperature' in locals() else 0.7
+        selected_max_tokens = max_tokens if 'max_tokens' in locals() else 500
+        
         response = client.chat.completions.create(
-            model="gpt-4",  # 또는 다른 OpenAI 모델
+            model=selected_model,
             messages=[
                 {"role": "system", "content": "당신은 AI 디지털 트랜스포메이션 전문가입니다."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=500,
-            temperature=0.7
+            max_tokens=selected_max_tokens,
+            temperature=selected_temp
         )
         
         return parse_ai_tip(response.choices[0].message.content)
@@ -246,7 +259,6 @@ def generate_upcoming_events(client):
         description = lines[1].strip() if len(lines) > 1 else ""
         
         # 날짜 형식 추출 (예: "3월 15일(금) 오후 2시")
-        import re
         date_pattern = r'\d+월\s+\d+일\(\w+\)\s+[오전|오후]\s+\d+시'
         date_match = re.search(date_pattern, event_text)
         date_str = date_match.group(0) if date_match else f"{(today + timedelta(days=5)).strftime('%m월 %d일')}(금) 오후 2시"
@@ -593,15 +605,6 @@ if st.session_state.generated:
         # 구독자 관리 데모
         st.markdown("### 구독자 관리")
         
-        # 샘플 구독자 데이터
-        if 'subscribers' not in st.session_state:
-            st.session_state.subscribers = pd.DataFrame({
-                '이메일': ['test1@example.com', 'test2@example.com', 'test3@example.com'],
-                '이름': ['김테스트', '이데모', '박샘플'],
-                '부서': ['마케팅', 'IT', '인사'],
-                '구독일': ['2025-02-01', '2025-02-15', '2025-03-01']
-            })
-        
         # 구독자 목록 표시
         st.dataframe(st.session_state.subscribers)
         
@@ -615,28 +618,34 @@ if st.session_state.generated:
             new_dept = st.text_input("부서", key="new_dept")
             
             if st.button("구독자 추가"):
-                new_row = pd.DataFrame({
-                    '이메일': [new_email],
-                    '이름': [new_name],
-                    '부서': [new_dept],
-                    '구독일': [datetime.now().strftime("%Y-%m-%d")]
-                })
-                st.session_state.subscribers = pd.concat([st.session_state.subscribers, new_row], ignore_index=True)
-                st.success("구독자가 추가되었습니다!")
+                if not new_email or '@' not in new_email:
+                    st.warning("유효한 이메일 주소를 입력해주세요.")
+                else:
+                    new_row = pd.DataFrame({
+                        '이메일': [new_email],
+                        '이름': [new_name or ''],
+                        '부서': [new_dept or ''],
+                        '구독일': [datetime.now().strftime("%Y-%m-%d")]
+                    })
+                    st.session_state.subscribers = pd.concat([st.session_state.subscribers, new_row], ignore_index=True)
+                    st.success("구독자가 추가되었습니다!")
         
         with col2:
             # 구독자 삭제 기능
             st.markdown("#### 구독자 삭제")
-            email_to_delete = st.selectbox(
-                "삭제할 구독자 선택",
-                options=st.session_state.subscribers['이메일'].tolist()
-            )
-            
-            if st.button("구독자 삭제"):
-                st.session_state.subscribers = st.session_state.subscribers[
-                    st.session_state.subscribers['이메일'] != email_to_delete
-                ].reset_index(drop=True)
-                st.success("구독자가 삭제되었습니다!")
+            if len(st.session_state.subscribers) > 0:
+                email_to_delete = st.selectbox(
+                    "삭제할 구독자 선택",
+                    options=st.session_state.subscribers['이메일'].tolist()
+                )
+                
+                if st.button("구독자 삭제"):
+                    st.session_state.subscribers = st.session_state.subscribers[
+                        st.session_state.subscribers['이메일'] != email_to_delete
+                    ].reset_index(drop=True)
+                    st.success("구독자가 삭제되었습니다!")
+            else:
+                st.info("삭제할 구독자가 없습니다.")
 
 # 사이드바에 도움말 추가
 with st.sidebar.expander("도움말"):
@@ -658,3 +667,30 @@ with st.sidebar.expander("도움말"):
 # 푸터 추가
 st.sidebar.markdown("---")
 st.sidebar.markdown("© 2025 AIDT 추진팀")
+
+# 모델 선택 옵션 추가
+with st.sidebar.expander("고급 설정"):
+    model_option = st.selectbox(
+        "OpenAI 모델 선택",
+        options=["gpt-4", "gpt-3.5-turbo"],
+        index=0,
+        help="콘텐츠 생성에 사용할 OpenAI 모델을 선택하세요. GPT-4가 더 고품질의 결과를 제공하지만, GPT-3.5는 더 빠르고 비용이 저렴합니다."
+    )
+    
+    temperature = st.slider(
+        "창의성 수준", 
+        min_value=0.0, 
+        max_value=1.0, 
+        value=0.7, 
+        step=0.1,
+        help="낮은 값은 더 일관된 결과를, 높은 값은 더 창의적인 결과를 제공합니다."
+    )
+    
+    max_tokens = st.slider(
+        "최대 토큰 수",
+        min_value=100,
+        max_value=1000,
+        value=500,
+        step=50,
+        help="각 콘텐츠 생성 요청당 최대 토큰 수를 설정합니다."
+    )

@@ -520,12 +520,14 @@ def get_html_download_link(html_string, filename="뉴스레터.html"):
     return href
 
 # 설정 탭
-# 그리고 number_input 부분을 다음과 같이 수정
+# 설정 탭
 with st.expander("뉴스레터 설정", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        # 직접 st.session_state.issue_number를 사용하지 말고 아래와 같이 작성
-        current_issue = st.session_state['issue_number']
+        # First check if the key exists before trying to access it
+        current_issue = 1
+        if 'issue_number' in st.session_state:
+            current_issue = st.session_state['issue_number']
         issue_number = st.number_input("뉴스레터 호수", min_value=1, value=current_issue)
         st.session_state['issue_number'] = issue_number
     with col2:

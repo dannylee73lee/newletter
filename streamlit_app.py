@@ -3,9 +3,11 @@ from openai import OpenAI
 from datetime import datetime
 import time
 import base64
+import os
 
 def generate_newsletter(api_key):
-    client = OpenAI(api_key=api_key)
+    os.environ["OPENAI_API_KEY"] = api_key  # API 키 설정
+    client = OpenAI()
     date = datetime.now().strftime('%Y년 %m월 %d일')
     issue_number = 1
     

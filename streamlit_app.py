@@ -15,20 +15,21 @@ st.set_page_config(
     layout="wide"
 )
 
-# 세션 상태 초기화 - 반드시 다른 코드보다 먼저 실행되어야 합니다
+# 세션 상태 초기화 - 가장 먼저 실행
 if 'issue_number' not in st.session_state:
-    st.session_state.issue_number = 1
+    st.session_state['issue_number'] = 1
 if 'newsletter_html' not in st.session_state:
-    st.session_state.newsletter_html = ""
+    st.session_state['newsletter_html'] = ""
 if 'generated' not in st.session_state:
-    st.session_state.generated = False
+    st.session_state['generated'] = False
 if 'subscribers' not in st.session_state:
-    st.session_state.subscribers = pd.DataFrame({
+    st.session_state['subscribers'] = pd.DataFrame({
         '이메일': ['test1@example.com', 'test2@example.com', 'test3@example.com'],
         '이름': ['김테스트', '이데모', '박샘플'],
         '부서': ['마케팅', 'IT', '인사'],
         '구독일': ['2025-02-01', '2025-02-15', '2025-03-01']
     })
+
 
 # 사이드바 생성
 st.sidebar.title("AIDT Weekly 뉴스레터")
@@ -519,11 +520,14 @@ def get_html_download_link(html_string, filename="뉴스레터.html"):
     return href
 
 # 설정 탭
+# 그리고 number_input 부분을 다음과 같이 수정
 with st.expander("뉴스레터 설정", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        issue_number = st.number_input("뉴스레터 호수", min_value=1, value=st.session_state.issue_number)
-        st.session_state.issue_number = issue_number
+        # 직접 st.session_state.issue_number를 사용하지 말고 아래와 같이 작성
+        current_issue = st.session_state['issue_number']
+        issue_number = st.number_input("뉴스레터 호수", min_value=1, value=current_issue)
+        st.session_state['issue_number'] = issue_number
     with col2:
         newsletter_date = st.date_input("발행일", datetime.now())
 

@@ -276,28 +276,30 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         'main_news': f"""
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
         오늘 날짜는 {date}입니다. 아래는 두 종류의 뉴스 기사입니다:
-        
+
         === OpenAI 관련 뉴스 ===
         {openai_news_info}
-        
+
         === 일반 뉴스 ===
         {news_info}
-        
+
         총 2개의 주요 소식을 다음 형식으로 작성해주세요:
-        
+
         1. 먼저 OpenAI 관련 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
         2. 그 다음 일반 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
-        
+
         각 소식은 다음 형식으로 작성해주세요:
         ## [주제]의 [핵심 강점/특징]은 [주목할만합니다/확인됐습니다/중요합니다].
-        
+
         간략한 내용을 1-2문장으로 작성하세요. 내용은 특정 기술이나 서비스, 기업의 최신 소식을 다루고, 
         핵심 내용만 포함해주세요. 그리고 왜 중요한지를 강조해주세요.
-        
+
         구체적인 수치나 인용구가 있다면 추가해주세요.
-        
-        각 소식의 마지막에는 뉴스 기사의 발행일과 출처를 반드시 "[출처 제목](출처 URL)" 형식으로 포함하세요.
-        
+
+        각 소식의 게시일을 반드시 '<p><small>게시일: YYYY년 MM월 DD일</small></p>' 형식으로 제목 바로 다음에 포함하세요.
+
+        각 소식의 마지막에는 뉴스 기사의 출처를 반드시 "[출처 제목](출처 URL)" 형식으로 포함하세요.
+
         모든 주제는 반드시 제공된 실제 뉴스 기사에서만 추출해야 합니다. 가상의 정보나 사실이 아닌 내용은 절대 포함하지 마세요.
         각 소식 사이에 충분한 공백을 두어 가독성을 높여주세요.
         """,
@@ -1228,6 +1230,7 @@ def generate_html_template(newsletter_content, issue_number, date, highlight_set
     return html_content
 
 # 통합된 뉴스레터를 위한 HTML 템플릿 생성 함수
+# 통합된 뉴스레터를 위한 HTML 템플릿 생성 함수
 def generate_combined_html_template(newsletter_content, issue_number, date, highlight_settings):
     """세 가지 API를 모두 사용한 뉴스레터 HTML 템플릿을 생성합니다."""
     html_content = f"""
@@ -1406,7 +1409,7 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                 font-style: italic;
             }}
             
-            /* 네이버 API 섹션 스타일 */
+            /* 네이버 API 섹션 스타일 - 검은색으로 변경 */
             .naver-section {{
                 background-color: #f8f8ff; /* 연한 파란색 배경 */
                 border-radius: 4px;
@@ -1414,12 +1417,8 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                 margin-bottom: 15px;
             }}
             
-            .naver-section h2 {{
-                color: #1e40af; /* 진한 파란색 제목 */
-            }}
-            
-            .naver-section h3 {{
-                color: #2563eb; /* 중간 파란색 제목 */
+            .naver-section h2, .naver-section h3 {{
+                color: #333333; /* 검은색으로 변경 */
             }}
         </style>
     </head>
@@ -1451,7 +1450,7 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                 </div>
                 ''' if 'main_news' in newsletter_content else ""}
                 
-                <!-- 네이버 API 섹션들 (OpenAI + NewsAPI 다음에 배치) -->
+                <!-- 네이버 API 섹션 (색상 변경) -->
                 {f'''
                 <div class="section">
                     <div class="section-title">국내 AI 뉴스</div>
@@ -1460,15 +1459,6 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                     </div>
                 </div>
                 ''' if 'naver_news' in newsletter_content else ""}
-                
-                {f'''
-                <div class="section">
-                    <div class="section-title">국내 AI 트렌드</div>
-                    <div class="section-container main-news naver-section">
-                        {newsletter_content.get('naver_trends', '<p>국내 AI 트렌드 뉴스를 불러올 수 없습니다.</p>')}
-                    </div>
-                </div>
-                ''' if 'naver_trends' in newsletter_content else ""}
                 
                 <div class="section">
                     <div class="section-title">이번 주 AT/DT 팁</div>
@@ -1481,20 +1471,6 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                     <div class="section-title">성공 사례</div>
                     <div class="section-container">
                         {newsletter_content.get('success_story', '<p>성공 사례를 불러올 수 없습니다.</p>')}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">다가오는 이벤트</div>
-                    <div class="section-container">
-                        {newsletter_content.get('events', '<p>이벤트 정보를 불러올 수 없습니다.</p>')}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">질문 & 답변</div>
-                    <div class="section-container">
-                        {newsletter_content.get('qa', '<p>Q&A를 불러올 수 없습니다.</p>')}
                     </div>
                 </div>
             </div>

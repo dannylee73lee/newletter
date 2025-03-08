@@ -183,7 +183,7 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
         ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=2, days=7)
         
         # 주요 소식 섹션 콘텐츠 생성
-        main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
+        # main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
         
         if not ai_news_items:
             main_news_content += "<p>최근 7일 이내의 관련 뉴스가 없습니다.</p>"
@@ -664,21 +664,21 @@ def main():
                     st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
                     st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
                     
-                    # 미리보기 표시 (iframe 사용)
-                    st.subheader("생성된 뉴스레터")
+                    # # 미리보기 표시 (iframe 사용)
+                    # st.subheader("생성된 뉴스레터")
                     
-                    # HTML 특수 문자 처리와 Content-Security-Policy 추가
-                    safe_html = html_content.replace('"', '\\"')
-                    iframe_html = f"""
-                    <iframe 
-                        srcdoc="{safe_html}" 
-                        width="100%" 
-                        height="600" 
-                        frameborder="0"
-                        sandbox="allow-scripts"
-                    ></iframe>
-                    """
-                    st.markdown(iframe_html, unsafe_allow_html=True)
+                    # # HTML 특수 문자 처리와 Content-Security-Policy 추가
+                    # safe_html = html_content.replace('"', '\\"')
+                    # iframe_html = f"""
+                    # <iframe 
+                    #     srcdoc="{safe_html}" 
+                    #     width="100%" 
+                    #     height="600" 
+                    #     frameborder="0"
+                    #     sandbox="allow-scripts"
+                    # ></iframe>
+                    # """
+                    # st.markdown(iframe_html, unsafe_allow_html=True)
                     
                 except Exception as e:
                     st.error(f"오류가 발생했습니다: {e}")

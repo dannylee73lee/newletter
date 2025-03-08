@@ -618,7 +618,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             .notice-item br {
                 display: inline; /* 항목 내부 줄바꿈 제거 */
                 line-height: 1; /* 줄간격 최소화 */
-            }
+            }}
         </style>
     </head>
     <body>

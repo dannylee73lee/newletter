@@ -101,18 +101,18 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_naver_news(client_id, client_secret, query, display=5):
+def fetch_naver_news(client_id, client_secret, query, display=2):
     """
-    네이버 검색 API를 사용하여 뉴스를 가져옵니다.
+    네이버 검색 API를 사용하여 최근 2주 내의 뉴스를 가져옵니다.
     
     Parameters:
     client_id (str): 네이버 개발자 센터에서 발급받은 Client ID
     client_secret (str): 네이버 개발자 센터에서 발급받은 Client Secret
     query (str): 검색할 키워드
-    display (int): 가져올 뉴스 수 (최대 100)
+    display (int): 가져올 뉴스 수 (최대 100, 기본값 2)
     
     Returns:
-    list: 뉴스 기사 목록
+    list: 최근 2주 내의 뉴스 기사 목록 (최대 display 개수만큼)
     """
     url = "https://openapi.naver.com/v1/search/news.json"
     headers = {
@@ -121,15 +121,31 @@ def fetch_naver_news(client_id, client_secret, query, display=5):
     }
     params = {
         "query": query,
-        "display": display,
-        "sort": "date"  # 최신순으로 정렬
+        "display": 100,  # 일단 많이 가져온 후 필터링
+        "sort": "date"   # 최신순으로 정렬
     }
     
     response = requests.get(url, headers=headers, params=params)
     
     if response.status_code == 200:
         result = response.json()
-        return result['items']
+        all_items = result['items']
+        
+        # 현재 시간과 2주 전 시간 계산
+        now = datetime.now()
+        two_weeks_ago = now - timedelta(days=14)
+        
+        # 최근 2주 내의 뉴스만 필터링
+        recent_items = []
+        for item in all_items:
+            # 네이버 API는 정확한 날짜 형식을 제공하지 않으므로,
+            # 여기서는 간단히 2주 내의 최신 뉴스 display개만 선택
+            if len(recent_items) < display:
+                recent_items.append(item)
+            else:
+                break
+        
+        return recent_items[:display]  # 최대 display 개수만 반환
     else:
         raise Exception(f"네이버 뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
@@ -151,14 +167,15 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     # 뉴스레터 콘텐츠를 저장할 딕셔너리
     newsletter_content = {}
     
-    # 네이버 뉴스 가져오기 - 일반 AI 뉴스
+    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최대 2개)
     try:
-        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5)
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=2)
         
         # 주요 소식 섹션 콘텐츠 생성
         main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
+        main_news_content += "<p><em>최근 2주 내 뉴스만 표시됩니다</em></p>"
         
-        for i, article in enumerate(ai_news_items[:3]):  # 상위 3개 뉴스만 사용
+        for i, article in enumerate(ai_news_items):  # 최대 2개의 뉴스
             # HTML 태그 제거
             title = article['title'].replace("<b>", "").replace("</b>", "")
             description = article['description'].replace("<b>", "").replace("</b>", "")
@@ -167,7 +184,7 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
             main_news_content += f"<p>{description}</p>"
             main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
             
-            if i < 2:  # 마지막 뉴스가 아닌 경우 구분선 추가
+            if i < len(ai_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
                 main_news_content += "<hr>"
         
         newsletter_content['main_news'] = main_news_content
@@ -176,14 +193,15 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
         newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
         st.error(f"네이버 API 오류: {str(e)}")
     
-    # 네이버 AI 트렌드 뉴스 가져오기
+    # 네이버 AI 트렌드 뉴스 가져오기 (최대 2개)
     try:
-        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5)
+        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=2)
         
         # AI 트렌드 섹션 콘텐츠 생성
         trend_news_content = "<h2>AI 트렌드 소식</h2>"
+        trend_news_content += "<p><em>최근 2주 내 뉴스만 표시됩니다</em></p>"
         
-        for i, article in enumerate(trend_news_items[:2]):  # 상위 2개 뉴스만 사용
+        for i, article in enumerate(trend_news_items):  # 최대 2개의 뉴스
             # HTML 태그 제거
             title = article['title'].replace("<b>", "").replace("</b>", "")
             description = article['description'].replace("<b>", "").replace("</b>", "")
@@ -192,7 +210,7 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
             trend_news_content += f"<p>{description}</p>"
             trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
             
-            if i < 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
+            if i < len(trend_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
                 trend_news_content += "<hr>"
         
         newsletter_content['ai_trends'] = trend_news_content

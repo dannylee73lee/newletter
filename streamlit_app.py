@@ -429,16 +429,18 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     newsletter_content = {}
     
     # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 7일 이내, 최신 2개)
+    # 국내 AI 뉴스를 가져오는 부분 수정 (1개에서 2개로 변경)
     try:
-        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=2, days=7)
+        # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 7일 이내, 최신 2개)
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query_ko, display=2, days=7)
         
-        # 주요 소식 섹션 콘텐츠 생성
-        main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
+        # 네이버 뉴스 섹션 콘텐츠 생성 ('국내 AI 주요 소식' 제목 삭제)
+        naver_news_content = ""  # 제목 텍스트 삭제
         
         if not ai_news_items:
-            main_news_content += "<p>최근 7일 이내의 관련 뉴스가 없습니다.</p>"
+            naver_news_content += "<p>최근 7일 이내의 관련 뉴스가 없습니다.</p>"
         else:
-            for i, article in enumerate(ai_news_items):  # 최신 2개 뉴스만 사용
+            for i, article in enumerate(ai_news_items):  # 최신 2개 뉴스 사용
                 # HTML 태그 제거
                 title = article['title'].replace("<b>", "").replace("</b>", "")
                 description = article['description'].replace("<b>", "").replace("</b>", "")
@@ -453,15 +455,15 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
                 except Exception:
                     pub_date_display = "날짜 정보 없음"
                 
-                main_news_content += f"<h3>{title}</h3>"
-                main_news_content += f"<p><small>게시일: {pub_date_display}</small></p>"
-                main_news_content += f"<p>{description}</p>"
-                main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+                naver_news_content += f"<h3>{title}</h3>"
+                naver_news_content += f"<p><small>게시일: {pub_date_display}</small></p>"
+                naver_news_content += f"<p>{description}</p>"
+                naver_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
                 
                 if i < len(ai_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
-                    main_news_content += "<hr>"
+                    naver_news_content += "<hr>"
         
-        newsletter_content['main_news'] = main_news_content
+        newsletter_content['naver_news'] = naver_news_content
         
     except Exception as e:
         newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
@@ -1390,23 +1392,27 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
 
             .template-content {{
                 margin-left: 15px;
+                margin-bottom: 10px; /* 내용 아래 여백 추가 */
             }}
 
             /* 예시와 프롬프트 스타일 */
             .example-label, .prompt-label {{
                 font-weight: bold;
                 margin-top: 5px;
+                color: #333; /* 이미지와 일치하는 색상 */
             }}
 
             .example-content, .prompt-content {{
                 margin-left: 15px;
                 line-height: 1.3; /* 내용 줄간격 약간 줄임 */
-                margin-bottom: 5px;
+                margin-bottom: 8px; /* 내용 하단 여백 증가 */
+                color: #333; /* 이미지와 일치하는 색상 */
             }}
 
             .tip-footer {{
                 margin-top: 15px;
                 font-style: italic;
+                color: #666; /* 이미지와 일치하는 색상 */
             }}
             
             /* 네이버 API 섹션 스타일 - 검은색으로 변경 */

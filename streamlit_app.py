@@ -101,7 +101,7 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=30):
+def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=14):
     """
     네이버 검색 API를 사용하여 뉴스를 가져오고 최근 일수로 필터링합니다.
     
@@ -189,15 +189,15 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     # 뉴스레터 콘텐츠를 저장할 딕셔너리
     newsletter_content = {}
     
-    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 2주 이내)
+    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 한 달 이내)
     try:
-        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5, days_limit=14)
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5, days_limit=30)
         
         # 주요 소식 섹션 콘텐츠 생성
-        main_news_content = "<h2>최근 2주 AI 주요 소식</h2>"
+        main_news_content = "<h2>최근 한 달 AI 주요 소식</h2>"
         
         if not ai_news_items:
-            main_news_content += "<p>최근 2주 이내의 관련 뉴스가 없습니다.</p>"
+            main_news_content += "<p>최근 한 달 이내의 관련 뉴스가 없습니다.</p>"
         else:
             for i, article in enumerate(ai_news_items[:3]):  # 상위 3개 뉴스만 사용
                 # HTML 태그 제거
@@ -251,15 +251,15 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
         newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
         st.error(f"네이버 API 오류: {str(e)}")
     
-    # 네이버 AI 트렌드 뉴스 가져오기 (최근 2주 이내)
+    # 네이버 AI 트렌드 뉴스 가져오기 (최근 한 달 이내)
     try:
-        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5, days_limit=14)
+        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5, days_limit=30)
         
         # AI 트렌드 섹션 콘텐츠 생성
-        trend_news_content = "<h2>최근 2주 AI 트렌드 소식</h2>"
+        trend_news_content = "<h2>최근 한 달 AI 트렌드 소식</h2>"
         
         if not trend_news_items:
-            trend_news_content += "<p>최근 2주 이내의 관련 트렌드 뉴스가 없습니다.</p>"
+            trend_news_content += "<p>최근 한 달 이내의 관련 트렌드 뉴스가 없습니다.</p>"
         else:
             for i, article in enumerate(trend_news_items[:2]):  # 상위 2개 뉴스만 사용
                 # HTML 태그 제거
@@ -677,7 +677,7 @@ def main():
             help="네이버 API 검색어를 입력하세요. 여러 키워드는 공백으로 구분됩니다."
         )
         
-        st.info("⚠️ 최근 2주 이내의 뉴스만 검색합니다. 더 많은 결과를 얻으려면 다양한 검색어를 시도해보세요.")
+        st.info("⚠️ 최근 한 달 이내의 뉴스만 검색합니다. 더 많은 결과를 얻으려면 다양한 검색어를 시도해보세요.")
     
     # 하이라이트 박스 설정
     with st.expander("하이라이트 박스 설정"):

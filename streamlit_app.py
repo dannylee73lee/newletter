@@ -392,46 +392,46 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>AIDT Weekly - 제{issue_number}호</title>
         <style>
-            body {
+            body {{
                 font-family: 'Segoe UI', Arial, sans-serif;
                 line-height: 1.5;
                 color: #333;
                 margin: 0;
                 padding: 0;
                 background-color: #f9f9f9;
-            }
-            .container {
+            }}
+            .container {{
                 max-width: 600px;
                 margin: 0 auto;
                 background-color: #ffffff;
-            }
-            .content {
+            }}
+            .content {{
                 padding: 20px;
-            }
-            .header {
+            }}
+            .header {{
                 background-color: #333333;
                 color: white;
                 padding: 15px 20px;
                 text-align: left;
-            }
-            .title {
+            }}
+            .title {{
                 margin: 0;
                 font-size: 20px;
                 font-weight: bold;
-            }
-            .issue-date {
+            }}
+            .issue-date {{
                 margin-top: 5px;
                 font-size: 10pt;
-            }
-            .section {
+            }}
+            .section {{
                 margin-bottom: 25px;
                 border-bottom: 1px solid #eee;
                 padding-bottom: 20px;
-            }
-            .section:last-child {
+            }}
+            .section:last-child {{
                 border-bottom: none;
-            }
-            .section-title {
+            }}
+            .section-title {{
                 color: #ffffff;
                 font-size: 16px;
                 font-weight: bold;
@@ -439,186 +439,186 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 background-color: #3e3e3e;
                 padding: 8px 10px;
                 border-radius: 4px;
-            }
-            .section-icon {
+            }}
+            .section-icon {{
                 margin-right: 8px;
-            }
-            h2, h3 {
+            }}
+            h2, h3 {{
                 font-size: 14px;
                 margin-bottom: 5px;
                 color: #333333;
-            }
-            .main-news h2 {
+            }}
+            .main-news h2 {{
                 color: #ff5722;
                 font-size: 14px;
                 margin-top: 15px;
                 margin-bottom: 5px;
                 border-bottom: none;
                 padding-bottom: 0;
-            }
-            .main-news a {
+            }}
+            .main-news a {{
                 color: #ff5722;
                 text-decoration: none;
-            }
-            .main-news a:hover {
+            }}
+            .main-news a:hover {{
                 text-decoration: underline;
-            }
+            }}
             .main-news p, .success-case p, p, li {
                 font-size: 10pt;
                 margin: 0 0 8px;
-            }
-            ul {
+            }}
+            ul {{
                 padding-left: 20px;
                 margin-top: 5px;
                 margin-bottom: 8px;
-            }
-            li {
+            }}
+            li {{
                 margin-bottom: 3px;
-            }
-            .footer {
+            }}
+            .footer {{
                 background-color: #f1f1f1;
                 padding: 10px;
                 text-align: center;
                 font-size: 9pt;
                 color: #666;
-            }
-            .section-container {
+            }}
+            .section-container {{
                 padding: 0 15px;
-            }
-            .highlight-box {
+            }}
+            .highlight-box {{
                 background-color: #fff9f5;
                 border: 1px solid #ffe0cc;
                 border-radius: 5px;
                 padding: 15px;
                 margin: 10px 0;
-            }
-            .highlight-title {
+            }}
+            .highlight-title {{
                 color: #ff5722;
                 font-size: 16px;
                 font-weight: bold;
                 margin-bottom: 10px;
                 text-align: center;
-            }
-            .highlight-subtitle {
+            }}
+            .highlight-subtitle {{
                 color: #666;
                 font-size: 12px;
                 text-align: center;
                 margin-bottom: 15px;
-            }
+            }}
             
             /* AT/DT 팁 섹션 스타일 */
-            .aidt-tips {
+            .aidt-tips {{
                 font-size: 10pt;
-            }
+            }}
 
-            .tip-title {
+            .tip-title {{
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin-bottom: 10px;
                 border-radius: 4px;
                 font-weight: bold;
-            }
+            }}
 
-            .prompt-examples-title {
+            .prompt-examples-title {{
                 background-color: #f2f2f2;
                 padding: 8px 10px;
                 margin: 15px 0 10px 0;
                 border-radius: 4px;
                 font-weight: bold;
-            }
+            }}
 
             /* 프롬프트 템플릿 스타일 */
-            .prompt-template {
+            .prompt-template {{
                 margin-bottom: 20px; /* 템플릿 간 간격 */
-            }
+            }}
 
-            .template-title {
+            .template-title {{
                 color: #ff5722; /* 제목 색상 - 오렌지 계열 */
                 font-weight: bold;
                 margin-bottom: 0; /* 제목과 내용 사이 간격 없음 */
                 padding: 0;
-            }
+            }}
 
-            .template-content {
+            .template-content {{
                 margin-left: 15px;
-            }
+            }}
 
             /* 예시와 프롬프트 스타일 */
-            .example-label, .prompt-label {
+            .example-label, .prompt-label {{
                 font-weight: bold;
                 margin-top: 5px;
-            }
+            }}
 
-            .example-content, .prompt-content {
+            .example-content, .prompt-content {{
                 margin-left: 15px;
                 line-height: 1.3; /* 내용 줄간격 약간 줄임 */
                 margin-bottom: 5px;
-            }
+            }}
 
-            .tip-footer {
+            .tip-footer {{
                 margin-top: 15px;
                 font-style: italic;
-            }
+            }}
             
             /* 이벤트 섹션 스타일 */
-            .event-section {
+            .event-section {{
                 font-size: 10pt; /* 모든 글자 크기 10pt로 통일 */
-            }
+            }}
 
-            .event-item {
+            .event-item {{
                 margin-bottom: 20px; /* 각 이벤트 항목(국내/해외) 사이 간격 */
-            }
+            }}
 
-            .event-item:last-child {
+            .event-item:last-child {{
                 margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
-            }
+            }}
 
-            .event-item h2 {
+            .event-item h2 {{
                 font-size: 10pt; /* 제목 글자 크기도 10pt로 설정 */
                 font-weight: bold;
                 margin-bottom: 5px;
-            }
+            }}
 
-            .event-item br {
+            .event-item br {{
                 display: inline; /* 항목 내부 줄바꿈 제거 */
                 line-height: 1; /* 줄간격 최소화 */
-            }
+            }}
 
             /* 사내 공지 섹션 스타일 */
-            .section-divider {
+            .section-divider {{
                 border-top: 1px dashed #ccc;
                 margin: 15px 0;
-            }
+            }}
 
-            .notice-title {
+            .notice-title {{
                 font-size: 14px;
                 font-weight: bold;
                 color: #333;
                 margin: 10px 0;
-            }
+            }}
 
-            .notice-section {
+            .notice-section {{
                 font-size: 10pt; /* 사내 공지도 10pt 글자 크기 */
-            }
+            }}
 
-            .notice-item {
+            .notice-item {{
                 margin-bottom: 15px; /* 공지 항목 간 간격 */
-            }
+            }}
 
-            .notice-item:last-child {
+            .notice-item:last-child {{
                 margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
-            }
+            }}
 
-            .notice-item h2 {
+            .notice-item h2 {{
                 font-size: 10pt; /* 공지 제목도 10pt */
                 font-weight: bold;
                 margin-bottom: 5px;
-            }
+            }}
 
-            .notice-item br {
+            .notice-item br {{
                 display: inline; /* 항목 내부 줄바꿈 제거 */
                 line-height: 1; /* 줄간격 최소화 */
-            }
+            }}
         </style>
     </head>
     <body>

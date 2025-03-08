@@ -1613,21 +1613,7 @@ def main():
                 st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
                 st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
                 
-                # 미리보기 표시
-                st.subheader("생성된 뉴스레터 미리보기")
-                
-                # HTML 특수 문자 처리와 Content-Security-Policy 추가
-                safe_html = html_content.replace('"', '\\"')
-                iframe_html = f"""
-                <iframe 
-                    srcdoc="{safe_html}" 
-                    width="100%" 
-                    height="600" 
-                    frameborder="0"
-                    sandbox="allow-scripts"
-                ></iframe>
-                """
-                st.markdown(iframe_html, unsafe_allow_html=True)
+                # 미리보기 부분 삭제
                 
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {e}")

@@ -7,7 +7,7 @@ import os
 import re
 import requests
 
-def convert_markdown_to_html(text):
+def convert_markdown_to_html(text, custom_notice=None, newsletter_content=None):
     """마크다운 텍스트를 HTML로 변환합니다."""
     # AT/DT 팁 섹션 특별 처리
     if "이번 주 팁:" in text or "핵심 프롬프트 예시" in text:
@@ -687,7 +687,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                <p>© {datetime.now().year} 중부Infra AT/DT Weekly | 뉴스레터 구독을 감사드립니다.</p>
                 <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
             </div>
         </div>

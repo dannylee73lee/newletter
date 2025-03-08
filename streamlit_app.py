@@ -1227,6 +1227,288 @@ def generate_html_template(newsletter_content, issue_number, date, highlight_set
     """
     return html_content
 
+# 통합된 뉴스레터를 위한 HTML 템플릿 생성 함수
+def generate_combined_html_template(newsletter_content, issue_number, date, highlight_settings):
+    """세 가지 API를 모두 사용한 뉴스레터 HTML 템플릿을 생성합니다."""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AIDT Weekly - 제{issue_number}호</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+                margin: 0;
+                padding: 0;
+                background-color: #f9f9f9;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+            }}
+            .content {{
+                padding: 20px;
+            }}
+            .header {{
+                background-color: #333333;
+                color: white;
+                padding: 15px 20px;
+                text-align: left;
+            }}
+            .title {{
+                margin: 0;
+                font-size: 20px;
+                font-weight: bold;
+            }}
+            .issue-date {{
+                margin-top: 5px;
+                font-size: 10pt;
+            }}
+            .section {{
+                margin-bottom: 25px;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 20px;
+            }}
+            .section:last-child {{
+                border-bottom: none;
+            }}
+            .section-title {{
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                background-color: #3e3e3e;
+                padding: 8px 10px;
+                border-radius: 4px;
+            }}
+            .section-icon {{
+                margin-right: 8px;
+            }}
+            h2, h3 {{
+                font-size: 14px;
+                margin-bottom: 5px;
+                color: #333333;
+            }}
+            .main-news h2 {{
+                color: #ff5722;
+                font-size: 14px;
+                margin-top: 15px;
+                margin-bottom: 5px;
+                border-bottom: none;
+                padding-bottom: 0;
+            }}
+            .main-news a {{
+                color: #ff5722;
+                text-decoration: none;
+            }}
+            .main-news a:hover {{
+                text-decoration: underline;
+            }}
+            .main-news p, .success-case p, p, li {{
+                font-size: 10pt;
+                margin: 0 0 8px;
+            }}
+            ul {{
+                padding-left: 20px;
+                margin-top: 5px;
+                margin-bottom: 8px;
+            }}
+            li {{
+                margin-bottom: 3px;
+            }}
+            .footer {{
+                background-color: #f1f1f1;
+                padding: 10px;
+                text-align: center;
+                font-size: 9pt;
+                color: #666;
+            }}
+            .section-container {{
+                padding: 0 15px;
+            }}
+            .highlight-box {{
+                background-color: #fff9f5;
+                border: 1px solid #ffe0cc;
+                border-radius: 5px;
+                padding: 15px;
+                margin: 10px 0;
+            }}
+            .highlight-title {{
+                color: #ff5722;
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                text-align: center;
+            }}
+            .highlight-subtitle {{
+                color: #666;
+                font-size: 12px;
+                text-align: center;
+                margin-bottom: 15px;
+            }}
+            
+            /* AT/DT 팁 섹션 스타일 */
+            .aidt-tips {{
+                font-size: 10pt;
+            }}
+
+            .tip-title {{
+                background-color: #f2f2f2;
+                padding: 8px 10px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+
+            .prompt-examples-title {{
+                background-color: #f2f2f2;
+                padding: 8px 10px;
+                margin: 15px 0 10px 0;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+
+            /* 프롬프트 템플릿 스타일 */
+            .prompt-template {{
+                margin-bottom: 20px; /* 템플릿 간 간격 */
+            }}
+
+            .template-title {{
+                color: #ff5722; /* 제목 색상 - 오렌지 계열 */
+                font-weight: bold;
+                margin-bottom: 0; /* 제목과 내용 사이 간격 없음 */
+                padding: 0;
+            }}
+
+            .template-content {{
+                margin-left: 15px;
+            }}
+
+            /* 예시와 프롬프트 스타일 */
+            .example-label, .prompt-label {{
+                font-weight: bold;
+                margin-top: 5px;
+            }}
+
+            .example-content, .prompt-content {{
+                margin-left: 15px;
+                line-height: 1.3; /* 내용 줄간격 약간 줄임 */
+                margin-bottom: 5px;
+            }}
+
+            .tip-footer {{
+                margin-top: 15px;
+                font-style: italic;
+            }}
+            
+            /* 네이버 API 섹션 스타일 */
+            .naver-section {{
+                background-color: #f8f8ff; /* 연한 파란색 배경 */
+                border-radius: 4px;
+                padding: 10px;
+                margin-bottom: 15px;
+            }}
+            
+            .naver-section h2 {{
+                color: #1e40af; /* 진한 파란색 제목 */
+            }}
+            
+            .naver-section h3 {{
+                color: #2563eb; /* 중간 파란색 제목 */
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="title">중부Infra AT/DT Weekly</div>
+                <div class="issue-info">제{issue_number}호 | {date}</div>
+            </div>
+            
+            <div class="content">
+                <div class="newsletter-intro">
+                    <p>중부Infra AT/DT 뉴스레터는 모두가 AI발전 속도에 뒤쳐지지 않고 업무에 적용할 수 있도록 가장 흥미로운 AI 활용법을 전합니다.</p>
+                </div>
+                
+                <div class="highlight-box">
+                    <div class="highlight-title">{highlight_settings['title']}</div>
+                    <div class="highlight-subtitle">{highlight_settings['subtitle']}</div>
+                    <p style="text-align: right; margin-top: 5px; font-size: 9pt;"><a href="{highlight_settings['link_url']}" style="color: #ff5722;">{highlight_settings['link_text']}</a></p>
+                </div>
+                
+                <!-- 글로벌 AI 뉴스 (OpenAI + NewsAPI) 섹션 -->
+                {f'''
+                <div class="section">
+                    <div class="section-title">글로벌 AI 뉴스</div>
+                    <div class="section-container main-news">
+                        {newsletter_content.get('main_news', '<p>글로벌 AI 뉴스를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                ''' if 'main_news' in newsletter_content else ""}
+                
+                <!-- 네이버 API 섹션들 (OpenAI + NewsAPI 다음에 배치) -->
+                {f'''
+                <div class="section">
+                    <div class="section-title">국내 AI 뉴스</div>
+                    <div class="section-container main-news naver-section">
+                        {newsletter_content.get('naver_news', '<p>국내 AI 뉴스를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                ''' if 'naver_news' in newsletter_content else ""}
+                
+                {f'''
+                <div class="section">
+                    <div class="section-title">국내 AI 트렌드</div>
+                    <div class="section-container main-news naver-section">
+                        {newsletter_content.get('naver_trends', '<p>국내 AI 트렌드 뉴스를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                ''' if 'naver_trends' in newsletter_content else ""}
+                
+                <div class="section">
+                    <div class="section-title">이번 주 AT/DT 팁</div>
+                    <div class="section-container aidt-tips">
+                        {newsletter_content.get('aidt_tips', '<p>AT/DT 팁을 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                
+                <div class="section success-case">
+                    <div class="section-title">성공 사례</div>
+                    <div class="section-container">
+                        {newsletter_content.get('success_story', '<p>성공 사례를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">다가오는 이벤트</div>
+                    <div class="section-container">
+                        {newsletter_content.get('events', '<p>이벤트 정보를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">질문 & 답변</div>
+                    <div class="section-container">
+                        {newsletter_content.get('qa', '<p>Q&A를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
+
 def create_download_link(html_content, filename):
     """HTML 콘텐츠를 다운로드할 수 있는 링크를 생성합니다."""
     b64 = base64.b64encode(html_content.encode()).decode()

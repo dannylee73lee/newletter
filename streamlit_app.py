@@ -101,23 +101,19 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=14):
+def fetch_naver_news(client_id, client_secret, query, display=5):
     """
-    네이버 검색 API를 사용하여 뉴스를 가져오고 최근 일수로 필터링합니다.
+    네이버 검색 API를 사용하여 뉴스를 가져옵니다.
     
     Parameters:
     client_id (str): 네이버 개발자 센터에서 발급받은 Client ID
     client_secret (str): 네이버 개발자 센터에서 발급받은 Client Secret
     query (str): 검색할 키워드
     display (int): 가져올 뉴스 수 (최대 100)
-    days_limit (int): 최근 몇 일 이내의 뉴스만 포함할지 설정 (기본값: 14일)
     
     Returns:
-    list: 필터링된 뉴스 기사 목록
+    list: 뉴스 기사 목록
     """
-    # 더 많은 결과를 가져와서 나중에 필터링
-    fetch_display = min(100, display * 3)  # 필터링 후 충분한 결과를 얻기 위해 더 많이 요청
-    
     url = "https://openapi.naver.com/v1/search/news.json"
     headers = {
         "X-Naver-Client-Id": client_id,
@@ -125,7 +121,7 @@ def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=14):
     }
     params = {
         "query": query,
-        "display": fetch_display,
+        "display": display,
         "sort": "date"  # 최신순으로 정렬
     }
     
@@ -133,41 +129,7 @@ def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=14):
     
     if response.status_code == 200:
         result = response.json()
-        all_items = result['items']
-        
-        # 최근 N일 이내의 뉴스만 필터링
-        filtered_items = []
-        current_date = datetime.now()
-        cut_off_date = current_date - timedelta(days=days_limit)
-        
-        for item in all_items:
-            try:
-                # 네이버 API의 pubDate 형식: "Sat, 09 Mar 2025 12:34:56 +0900"
-                pub_date = None
-                try:
-                    # 첫 번째 형식 시도
-                    pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S %z')
-                except ValueError:
-                    try:
-                        # 다른 형식 시도 (시간대 표기 없는 경우)
-                        pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S')
-                    except ValueError:
-                        # 날짜 파싱 실패 시 모든 뉴스 포함
-                        pub_date = current_date
-                
-                # 날짜가 cut_off_date 이후인 경우만 포함
-                if pub_date >= cut_off_date:
-                    filtered_items.append(item)
-                    
-                    # 원하는 개수에 도달하면 중단
-                    if len(filtered_items) >= display:
-                        break
-            except Exception as e:
-                print(f"날짜 파싱 오류: {e}, 항목: {item}")
-                # 오류 발생 시 해당 항목은 건너뜀
-                continue
-        
-        return filtered_items
+        return result['items']
     else:
         raise Exception(f"네이버 뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
@@ -189,61 +151,24 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     # 뉴스레터 콘텐츠를 저장할 딕셔너리
     newsletter_content = {}
     
-    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 한 달 이내)
+    # 네이버 뉴스 가져오기 - 일반 AI 뉴스
     try:
-        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5, days_limit=30)
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5)
         
         # 주요 소식 섹션 콘텐츠 생성
-        main_news_content = "<h2>최근 한 달 AI 주요 소식</h2>"
+        main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
         
-        if not ai_news_items:
-            main_news_content += "<p>최근 한 달 이내의 관련 뉴스가 없습니다.</p>"
-        else:
-            for i, article in enumerate(ai_news_items[:3]):  # 상위 3개 뉴스만 사용
-                # HTML 태그 제거
-                title = article['title'].replace("<b>", "").replace("</b>", "")
-                description = article['description'].replace("<b>", "").replace("</b>", "")
-                
-                # 날짜 형식 변환 시도
-                pub_date_str = ""
-                try:
-                    # 네이버 API의 pubDate 형식: "Sat, 09 Mar 2025 12:34:56 +0900"
-                    try:
-                        pub_date = datetime.strptime(article['pubDate'], '%a, %d %b %Y %H:%M:%S %z')
-                        pub_date_str = f" ({pub_date.strftime('%Y년 %m월 %d일')})"
-                    except ValueError:
-                        try:
-                            pub_date = datetime.strptime(article['pubDate'], '%a, %d %b %Y %H:%M:%S')
-                            pub_date_str = f" ({pub_date.strftime('%Y년 %m월 %d일')})"
-                        except:
-                            # 실패 시 원본 표시
-                            pub_date_str = f" ({article['pubDate']})"
-                except:
-                    # 날짜 정보가 없는 경우 생략
-                    pass
-                
-                main_news_content += f"<h3>{title}{pub_date_str}</h3>"
-                main_news_content += f"<p>{description}</p>"
-                
-                # 원본 링크가 있으면 그것을 사용, 없으면 네이버 링크 사용
-                source_link = article.get('originallink', '')
-                if not source_link or source_link.strip() == '':
-                    source_link = article['link']
-                
-                source_domain = source_link
-                try:
-                    # URL에서 도메인 부분만 추출
-                    from urllib.parse import urlparse
-                    parsed_url = urlparse(source_link)
-                    source_domain = parsed_url.netloc
-                except:
-                    # 실패하면 원본 링크 사용
-                    pass
-                
-                main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {source_domain}</p>"
-                
-                if i < 2 and i < len(ai_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
-                    main_news_content += "<hr>"
+        for i, article in enumerate(ai_news_items[:3]):  # 상위 3개 뉴스만 사용
+            # HTML 태그 제거
+            title = article['title'].replace("<b>", "").replace("</b>", "")
+            description = article['description'].replace("<b>", "").replace("</b>", "")
+            
+            main_news_content += f"<h3>{title}</h3>"
+            main_news_content += f"<p>{description}</p>"
+            main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+            
+            if i < 2:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                main_news_content += "<hr>"
         
         newsletter_content['main_news'] = main_news_content
         
@@ -251,61 +176,24 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
         newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
         st.error(f"네이버 API 오류: {str(e)}")
     
-    # 네이버 AI 트렌드 뉴스 가져오기 (최근 한 달 이내)
+    # 네이버 AI 트렌드 뉴스 가져오기
     try:
-        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5, days_limit=30)
+        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5)
         
         # AI 트렌드 섹션 콘텐츠 생성
-        trend_news_content = "<h2>최근 한 달 AI 트렌드 소식</h2>"
+        trend_news_content = "<h2>AI 트렌드 소식</h2>"
         
-        if not trend_news_items:
-            trend_news_content += "<p>최근 한 달 이내의 관련 트렌드 뉴스가 없습니다.</p>"
-        else:
-            for i, article in enumerate(trend_news_items[:2]):  # 상위 2개 뉴스만 사용
-                # HTML 태그 제거
-                title = article['title'].replace("<b>", "").replace("</b>", "")
-                description = article['description'].replace("<b>", "").replace("</b>", "")
-                
-                # 날짜 형식 변환 시도
-                pub_date_str = ""
-                try:
-                    # 네이버 API의 pubDate 형식: "Sat, 09 Mar 2025 12:34:56 +0900"
-                    try:
-                        pub_date = datetime.strptime(article['pubDate'], '%a, %d %b %Y %H:%M:%S %z')
-                        pub_date_str = f" ({pub_date.strftime('%Y년 %m월 %d일')})"
-                    except ValueError:
-                        try:
-                            pub_date = datetime.strptime(article['pubDate'], '%a, %d %b %Y %H:%M:%S')
-                            pub_date_str = f" ({pub_date.strftime('%Y년 %m월 %d일')})"
-                        except:
-                            # 실패 시 원본 표시
-                            pub_date_str = f" ({article['pubDate']})"
-                except:
-                    # 날짜 정보가 없는 경우 생략
-                    pass
-                
-                trend_news_content += f"<h3>{title}{pub_date_str}</h3>"
-                trend_news_content += f"<p>{description}</p>"
-                
-                # 원본 링크가 있으면 그것을 사용, 없으면 네이버 링크 사용
-                source_link = article.get('originallink', '')
-                if not source_link or source_link.strip() == '':
-                    source_link = article['link']
-                
-                source_domain = source_link
-                try:
-                    # URL에서 도메인 부분만 추출
-                    from urllib.parse import urlparse
-                    parsed_url = urlparse(source_link)
-                    source_domain = parsed_url.netloc
-                except:
-                    # 실패하면 원본 링크 사용
-                    pass
-                
-                trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {source_domain}</p>"
-                
-                if i < 1 and i < len(trend_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
-                    trend_news_content += "<hr>"
+        for i, article in enumerate(trend_news_items[:2]):  # 상위 2개 뉴스만 사용
+            # HTML 태그 제거
+            title = article['title'].replace("<b>", "").replace("</b>", "")
+            description = article['description'].replace("<b>", "").replace("</b>", "")
+            
+            trend_news_content += f"<h3>{title}</h3>"
+            trend_news_content += f"<p>{description}</p>"
+            trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+            
+            if i < 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                trend_news_content += "<hr>"
         
         newsletter_content['ai_trends'] = trend_news_content
         
@@ -676,8 +564,6 @@ def main():
             value="AI 인공지능 디지털 트랜스포메이션",
             help="네이버 API 검색어를 입력하세요. 여러 키워드는 공백으로 구분됩니다."
         )
-        
-        st.info("⚠️ 최근 한 달 이내의 뉴스만 검색합니다. 더 많은 결과를 얻으려면 다양한 검색어를 시도해보세요.")
     
     # 하이라이트 박스 설정
     with st.expander("하이라이트 박스 설정"):

@@ -523,9 +523,9 @@ def main():
                     st.subheader("생성된 뉴스레터 미리보기")
                     st.components.v1.html(html_content, height=800)
                     
-               except Exception as e:
-                    st.error(f"오류가 발생했습니다: {str(e)}")
-                    st.exception(e)
+    except Exception as e:
+        st.error(f"오류가 발생했습니다: {str(e)}")
+        st.exception(e)
 
 if __name__ == "__main__":
     main()

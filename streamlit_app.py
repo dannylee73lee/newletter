@@ -1,17 +1,13 @@
-# models.py
+import streamlit as st
+from openai import OpenAI
+from datetime import datetime, timedelta
+import time
+import base64
+import os
+import re
+import requests
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
-import requests
-from openai import OpenAI
-import re
-from models import InternalEvent, HighlightSettings, NewsletterConfig
-from news_service import NewsService
-from events_service import EventsService
-from html_converter import convert_markdown_to_html, get_newsletter_styles
-import streamlit as st
-import base64
-from newsletter_generator import NewsletterGenerator
 
 @dataclass
 class InternalEvent:
@@ -37,7 +33,6 @@ class NewsletterConfig:
     MAX_NEWS_DAYS: int = 7
     MAX_NEWS_ARTICLES: int = 5
     MAX_OPENAI_NEWS: int = 3
-    DEFAULT_LANGUAGE: str = "en"
 
 @dataclass
 class HighlightSettings:
@@ -47,97 +42,84 @@ class HighlightSettings:
     link_text: str = "AT/DT 추진방향 →"
     link_url: str = "#"
 
-class NewsService:
-    """뉴스 API 관련 서비스 클래스"""
+def fetch_real_time_news(api_key: str, query: str = "AI digital transformation", 
+                        days: int = 7, language: str = "en") -> List[Dict[str, Any]]:
+    """NewsAPI를 사용하여 실시간 뉴스를 가져옵니다."""
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=min(days, 7))
     
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "https://newsapi.org/v2/everything"
-        self.config = NewsletterConfig()
-
-    def fetch_news(self, query: str, days: int = 7, language: str = "en") -> List[Dict[str, Any]]:
-        """뉴스 API를 통해 뉴스 기사를 가져옵니다."""
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=min(days, self.config.MAX_NEWS_DAYS))
-        
-        params = {
-            'q': query,
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d'),
-            'sortBy': 'publishedAt',
-            'language': language,
-            'apiKey': self.api_key
-        }
-        
-        response = requests.get(self.base_url, params=params)
-        
-        if response.status_code == 200:
-            news_data = response.json()
-            return news_data['articles'][:self.config.MAX_NEWS_ARTICLES]
-        else:
-            raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
-
-    def format_news_info(self, articles: List[Dict[str, Any]]) -> str:
-        """뉴스 기사 정보를 포맷팅합니다."""
-        news_info = "최근 7일 내 수집된 실제 뉴스 기사:\n\n"
-        
-        for i, article in enumerate(articles):
-            pub_date = datetime.fromisoformat(
-                article['publishedAt'].replace('Z', '+00:00')
-            ).strftime('%Y년 %m월 %d일')
-            
-            news_info += f"{i+1}. 제목: {article['title']}\n"
-            news_info += f"   날짜: {pub_date}\n"
-            news_info += f"   요약: {article['description']}\n"
-            news_info += f"   출처: {article['source']['name']}\n"
-            news_info += f"   URL: {article['url']}\n\n"
-            
-        return news_info
-
-class EventsService:
-    """이벤트 관련 서비스 클래스"""
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        'q': query,
+        'from': start_date.strftime('%Y-%m-%d'),
+        'to': end_date.strftime('%Y-%m-%d'),
+        'sortBy': 'publishedAt',
+        'language': language,
+        'apiKey': api_key
+    }
     
-    def __init__(self, openai_client: OpenAI):
-        self.client = openai_client
+    response = requests.get(url, params=params)
+    
+    if response.status_code == 200:
+        news_data = response.json()
+        return news_data['articles']
+    else:
+        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
-    def generate_events_content(self, internal_events: Optional[List[InternalEvent]] = None) -> str:
-        """이벤트 섹션 컨텐츠를 생성합니다."""
-        prompt = """
-        AIDT Weekly 뉴스레터의 '주요 행사 안내' 섹션을 생성해주세요.
+def format_news_info(articles: List[Dict[str, Any]], title: str = "최근 뉴스") -> str:
+    """뉴스 기사 정보를 포맷팅합니다."""
+    news_info = f"{title}:\n\n"
+    for i, article in enumerate(articles):
+        pub_date = datetime.fromisoformat(
+            article['publishedAt'].replace('Z', '+00:00')
+        ).strftime('%Y년 %m월 %d일')
         
-        다음 형식으로 국내/외 주요 AI 컨퍼런스나 행사를 각각 1개씩 작성해주세요:
-        
-        ## 국내 주요 행사
-        날짜/시간: [날짜 정보]
-        장소/형식: [장소 또는 온라인 여부]
-        내용: [한 문장으로 간략한 설명]
-        
-        ## 해외 주요 행사
-        날짜/시간: [날짜 정보]
-        장소/형식: [장소 또는 온라인 여부]
-        내용: [한 문장으로 간략한 설명]
-        """
-        
-        if internal_events:
-            prompt += "\n\n## 사내 주요 일정\n"
-            for event in internal_events:
-                prompt += f"""
-                {event.title}
-                날짜/시간: {event.date_time}
-                장소/형식: {event.location}
-                내용: {event.description}
-                """
+        news_info += f"{i+1}. 제목: {article['title']}\n"
+        news_info += f"   날짜: {pub_date}\n"
+        news_info += f"   요약: {article['description']}\n"
+        news_info += f"   출처: {article['source']['name']}\n"
+        news_info += f"   URL: {article['url']}\n\n"
+    
+    return news_info
 
-        response = self.client.chat.completions.create(
-            model="gpt-4-turbo-preview",
-            messages=[
-                {"role": "system", "content": "AI 컨퍼런스와 행사 정보 전문가입니다. 명확하고 실용적인 정보만 제공합니다."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
-        
-        return response.choices[0].message.content
+def generate_events_content(client: OpenAI, internal_events: Optional[List[InternalEvent]] = None) -> str:
+    """이벤트 섹션 컨텐츠를 생성합니다."""
+    prompt = """
+    AIDT Weekly 뉴스레터의 '주요 행사 안내' 섹션을 생성해주세요.
+    
+    다음 형식으로 국내/외 주요 AI 컨퍼런스나 행사를 각각 1개씩 작성해주세요:
+    
+    ## 국내 주요 행사
+    날짜/시간: [날짜 정보]
+    장소/형식: [장소 또는 온라인 여부]
+    내용: [한 문장으로 간략한 설명]
+    
+    ## 해외 주요 행사
+    날짜/시간: [날짜 정보]
+    장소/형식: [장소 또는 온라인 여부]
+    내용: [한 문장으로 간략한 설명]
+    """
+    
+    if internal_events:
+        prompt += "\n\n## 사내 주요 일정\n"
+        for event in internal_events:
+            prompt += f"""
+            {event.title}
+            날짜/시간: {event.date_time}
+            장소/형식: {event.location}
+            내용: {event.description}
+            """
+
+    response = client.chat.completions.create(
+        model="gpt-4-turbo-preview",
+        messages=[
+            {"role": "system", "content": "AI 컨퍼런스와 행사 정보 전문가입니다. 명확하고 실용적인 정보만 제공합니다."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
+    )
+    
+    return response.choices[0].message.content
 
 def get_newsletter_styles() -> str:
     """뉴스레터 스타일 CSS를 반환합니다."""
@@ -184,8 +166,6 @@ def get_newsletter_styles() -> str:
             padding: 8px 10px;
             border-radius: 4px;
         }
-        
-        /* 이벤트 섹션 특별 스타일 */
         .events-section h2 {
             font-size: 14px;
             color: #333333;
@@ -205,21 +185,46 @@ def get_newsletter_styles() -> str:
             padding: 0;
             font-size: 10pt;
         }
-        .internal-events {
-            background-color: #f8f9fa;
-            padding: 10px;
+        .tip-title {
+            background-color: #f2f2f2;
+            padding: 8px 10px;
+            margin-bottom: 10px;
             border-radius: 4px;
-            margin-top: 10px;
+            font-weight: bold;
         }
-        .internal-event-item {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed #ddd;
+        .prompt-examples-title {
+            background-color: #f2f2f2;
+            padding: 8px 10px;
+            margin: 15px 0 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
         }
-        .internal-event-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
+        .highlight-box {
+            background-color: #fff9f5;
+            border: 1px solid #ffe0cc;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .highlight-title {
+            color: #ff5722;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .highlight-subtitle {
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .footer {
+            background-color: #f1f1f1;
+            padding: 10px;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
         }
     </style>
     """
@@ -236,14 +241,17 @@ def convert_markdown_to_html(text: str) -> str:
     
     # AT/DT 팁 섹션 특별 처리
     if "이번 주 팁:" in text:
-        text = re.sub(r'^## 이번 주 팁: (.*?)$', 
-                     r'<div class="tip-title">이번 주 팁: \1</div>', 
-                     text, flags=re.MULTILINE)
-        
-        # 프롬프트 예시 처리
-        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', 
-                     r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', 
-                     text)
+        text = re.sub(
+            r'^## 이번 주 팁: (.*?)$',
+            r'<div class="tip-title">이번 주 팁: \1</div>',
+            text,
+            flags=re.MULTILINE
+        )
+        text = re.sub(
+            r'\*\*핵심 프롬프트 예시:\*\*',
+            r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>',
+            text
+        )
     
     # 기본 마크다운 변환
     text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
@@ -262,59 +270,37 @@ def convert_markdown_to_html(text: str) -> str:
     
     return ''.join(paragraphs)
 
-class NewsletterGenerator:
-    """뉴스레터 생성을 담당하는 클래스"""
+def generate_newsletter(openai_api_key: str, news_api_key: str, news_query: str,
+                       language: str = "en", internal_events: Optional[List[InternalEvent]] = None,
+                       issue_num: int = 1, highlight_settings: Optional[HighlightSettings] = None) -> str:
+    """뉴스레터를 생성합니다."""
+    client = OpenAI(api_key=openai_api_key)
+    config = NewsletterConfig()
     
-    def __init__(self, openai_api_key: str, news_api_key: str):
-        self.openai_client = OpenAI(api_key=openai_api_key)
-        self.news_service = NewsService(news_api_key)
-        self.events_service = EventsService(self.openai_client)
-        self.config = NewsletterConfig()
+    if highlight_settings is None:
+        highlight_settings = HighlightSettings()
     
-    def generate_content(self, news_query: str, language: str, 
-                        internal_events: Optional[List[InternalEvent]] = None,
-                        issue_num: int = 1) -> Dict[str, str]:
-        """뉴스레터의 각 섹션 콘텐츠를 생성합니다."""
-        
-        # 뉴스 정보 수집
-        news_articles = self.news_service.fetch_news(news_query, self.config.MAX_NEWS_DAYS, language)
-        openai_articles = self.news_service.fetch_news("OpenAI", self.config.MAX_NEWS_DAYS, language)
+    try:
+        # 뉴스 수집
+        news_articles = fetch_real_time_news(news_api_key, news_query, config.MAX_NEWS_DAYS, language)
+        openai_articles = fetch_real_time_news(news_api_key, "OpenAI", config.MAX_NEWS_DAYS, language)
         
         # 뉴스 정보 포맷팅
-        news_info = self.news_service.format_news_info(news_articles)
-        openai_news_info = self.news_service.format_news_info(openai_articles[:self.config.MAX_OPENAI_NEWS])
+        news_info = format_news_info(news_articles[:config.MAX_NEWS_ARTICLES], "일반 뉴스")
+        openai_news_info = format_news_info(openai_articles[:config.MAX_OPENAI_NEWS], "OpenAI 관련 뉴스")
         
         # 현재 주차의 AI 팁 주제 선택
-        current_topic = self.config.AI_TIP_TOPICS[(issue_num - 1) % len(self.config.AI_TIP_TOPICS)]
-        
-        # 각 섹션 콘텐츠 생성
-        content = {}
+        current_topic = config.AI_TIP_TOPICS[(issue_num - 1) % len(config.AI_TIP_TOPICS)]
         
         # 주요 소식 생성
-        content['main_news'] = self._generate_main_news(openai_news_info, news_info)
-        
-        # AT/DT 팁 생성
-        content['aidt_tips'] = self._generate_aidt_tips(current_topic)
-        
-        # 이벤트 섹션 생성
-        content['events'] = self.events_service.generate_events_content(internal_events)
-        
-        # 섹션별 HTML 변환
-        for section, text in content.items():
-            content[section] = convert_markdown_to_html(text)
-            
-        return content
-    
-    def _generate_main_news(self, openai_news: str, general_news: str) -> str:
-        """주요 소식 섹션을 생성합니다."""
-        prompt = f"""
+        main_news_prompt = f"""
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
         
         === OpenAI 관련 뉴스 ===
-        {openai_news}
+        {openai_news_info}
         
         === 일반 뉴스 ===
-        {general_news}
+        {news_info}
         
         총 2개의 주요 소식을 선택하여 작성해주세요:
         1. OpenAI 관련 뉴스에서 가장 중요한 1개
@@ -324,20 +310,17 @@ class NewsletterGenerator:
         ## [주제]의 [핵심 강점/특징]은 [주목할만합니다/확인됐습니다/중요합니다].
         """
         
-        response = self.openai_client.chat.completions.create(
+        main_news_response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
                 {"role": "system", "content": "AI 뉴스 전문 에디터입니다."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": main_news_prompt}
             ],
             temperature=0.7
         )
         
-        return response.choices[0].message.content
-    
-    def _generate_aidt_tips(self, current_topic: str) -> str:
-        """AT/DT 팁 섹션을 생성합니다."""
-        prompt = f"""
+        # AT/DT 팁 생성
+        tips_prompt = f"""
         이번 주 팁 주제는 "{current_topic}"입니다.
         실용적인 팁을 다음 형식으로 작성해주세요:
         
@@ -359,26 +342,28 @@ class NewsletterGenerator:
           프롬프트: [템플릿]
         """
         
-        response = self.openai_client.chat.completions.create(
+        tips_response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
                 {"role": "system", "content": "AI 프롬프트 엔지니어링 전문가입니다."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": tips_prompt}
             ],
             temperature=0.7
         )
         
-        return response.choices[0].message.content
-    
-    def generate_html(self, content: Dict[str, str], issue_num: int,
-                     highlight_settings: Optional[HighlightSettings] = None) -> str:
-        """최종 HTML 뉴스레터를 생성합니다."""
-        if highlight_settings is None:
-            highlight_settings = HighlightSettings()
-            
+        # 이벤트 섹션 생성
+        events_content = generate_events_content(client, internal_events)
+        
+        # 각 섹션 HTML 변환
+        main_news_html = convert_markdown_to_html(main_news_response.choices[0].message.content)
+        tips_html = convert_markdown_to_html(tips_response.choices[0].message.content)
+        events_html = convert_markdown_to_html(events_content)
+        
+        # 날짜 정보
         date = datetime.now().strftime('%Y년 %m월 %d일')
         
-        return f"""
+        # 최종 HTML 생성
+        html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -408,21 +393,21 @@ class NewsletterGenerator:
                     <div class="section">
                         <div class="section-title">주요 소식</div>
                         <div class="section-container main-news">
-                            {content['main_news']}
+                            {main_news_html}
                         </div>
                     </div>
                     
                     <div class="section">
                         <div class="section-title">이번 주 AT/DT 팁</div>
                         <div class="section-container aidt-tips">
-                            {content['aidt_tips']}
+                            {tips_html}
                         </div>
                     </div>
                     
                     <div class="section">
                         <div class="section-title">주요 행사 안내</div>
                         <div class="section-container events-section">
-                            {content['events']}
+                            {events_html}
                         </div>
                     </div>
                 </div>
@@ -435,6 +420,11 @@ class NewsletterGenerator:
         </body>
         </html>
         """
+        
+        return html_content
+    
+    except Exception as e:
+        raise Exception(f"뉴스레터 생성 중 오류 발생: {str(e)}")
 
 def create_download_link(html_content: str, filename: str) -> str:
     """HTML 콘텐츠를 다운로드할 수 있는 링크를 생성합니다."""
@@ -514,25 +504,16 @@ def main():
         else:
             with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
                 try:
-                    # 뉴스레터 생성기 초기화
-                    generator = NewsletterGenerator(openai_api_key, news_api_key)
-                    
-                    # 콘텐츠 생성
-                    content = generator.generate_content(
+                    html_content = generate_newsletter(
+                        openai_api_key=openai_api_key,
+                        news_api_key=news_api_key,
                         news_query=news_query,
                         language=language,
                         internal_events=internal_events if internal_events else None,
-                        issue_num=issue_number
-                    )
-                    
-                    # HTML 생성
-                    html_content = generator.generate_html(
-                        content=content,
                         issue_num=issue_number,
                         highlight_settings=highlight_settings
                     )
                     
-                    # 파일명 생성
                     filename = f"중부_ATDT_Weekly-제{issue_number}호.html"
                     
                     st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
@@ -542,7 +523,7 @@ def main():
                     st.subheader("생성된 뉴스레터 미리보기")
                     st.components.v1.html(html_content, height=800)
                     
-                except Exception as e:
+               except Exception as e:
                     st.error(f"오류가 발생했습니다: {str(e)}")
                     st.exception(e)
 

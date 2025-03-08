@@ -1492,7 +1492,7 @@ def create_download_link(html_content, filename):
     return href
 
 def main():
-    st.title("AIDT 뉴스레터 생성기")
+    st.title("중부Infra AT/DT 뉴스레터 생성기")
     st.write("OpenAI, NewsAPI, 네이버 API를 활용하여 AI 디지털 트랜스포메이션 관련 뉴스레터를 자동으로 생성합니다.")
     
     # API 키 입력

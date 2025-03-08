@@ -587,7 +587,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 font-size: 10pt; /* 제목 글자 크기도 10pt로 설정 */
                 font-weight: bold;
                 margin-bottom: 5px;
-            }
+            }}
             
             .event-item br {{
                 display: inline; /* 항목 내부 줄바꿈 제거 */

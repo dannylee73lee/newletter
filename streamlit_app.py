@@ -7,7 +7,7 @@ import os
 import re
 import requests
 
-def convert_markdown_to_html(text, custom_notice=None, newsletter_content=None):
+def convert_markdown_to_html(text):
     """마크다운 텍스트를 HTML로 변환합니다."""
     # AT/DT 팁 섹션 특별 처리
     if "이번 주 팁:" in text or "핵심 프롬프트 예시" in text:
@@ -85,18 +85,7 @@ def convert_markdown_to_html(text, custom_notice=None, newsletter_content=None):
                 flags=re.DOTALL
             )
 
-    # 사용자가 직접 입력한 사내 공지가 있는 경우
-    if custom_notice and newsletter_content:
-        # 이벤트 섹션과 사내 공지 섹션 합치기
-        combined_events = f'''{newsletter_content['events']}
-        
-        <div class="section-divider"></div>
-        <h2 class="notice-title">[사내 공지]</h2>
-        <div class="notice-section">
-            {convert_markdown_to_html(custom_notice)}
-        </div>'''
-        newsletter_content['events'] = combined_events
-
+    # 여기서 custom_notice와 newsletter_content 관련 코드 제거
 
     # 제목 변환 (# 제목)
     text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
@@ -368,7 +357,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         try:
             # 사용자가 입력한 성공 사례가 있으면 생성 건너뛰기
             if section == 'success_story' and custom_success_story:
-                newsletter_content[section] = convert_markdown_to_html(custom_success_story, custom_notice, newsletter_content)
+                newsletter_content[section] = convert_markdown_to_html(custom_success_story)
                 continue
                 
             response = client.chat.completions.create(
@@ -379,11 +368,11 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 ],
                 temperature=0.7
             )
-            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content, custom_notice, newsletter_content)
+            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
         except Exception as e:
             newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
-    
-    # 사용자가 직접 입력한 사내 공지가 있는 경우
+
+    # 사용자가 직접 입력한 사내 공지가 있는 경우 - 여기서 한 번만 처리
     if custom_notice:
         # 이벤트 섹션과 사내 공지 섹션 합치기
         combined_events = f'''{newsletter_content['events']}

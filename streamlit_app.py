@@ -463,7 +463,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             .main-news a:hover {{
                 text-decoration: underline;
             }}
-            .main-news p, .success-case p, p, li {
+            .main-news p, .success-case p, p, li {{
                 font-size: 10pt;
                 margin: 0 0 8px;
             }}

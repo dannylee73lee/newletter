@@ -392,7 +392,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>AIDT Weekly - 제{issue_number}호</title>
         <style>
-            body {{
+            body {
                 font-family: 'Segoe UI', Arial, sans-serif;
                 line-height: 1.5;
                 color: #333;
@@ -618,7 +618,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             .notice-item br {
                 display: inline; /* 항목 내부 줄바꿈 제거 */
                 line-height: 1; /* 줄간격 최소화 */
-            }}
+            }
         </style>
     </head>
     <body>

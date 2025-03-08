@@ -101,7 +101,7 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=14):
+def fetch_naver_news(client_id, client_secret, query, display=5, days_limit=30):
     """
     네이버 검색 API를 사용하여 뉴스를 가져오고 최근 일수로 필터링합니다.
     

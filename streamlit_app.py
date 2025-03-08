@@ -245,6 +245,7 @@ def fetch_ai_use_cases(naver_client_id, naver_client_secret, query="AI 활용사
 def generate_ai_use_case_content(openai_api_key, use_case_data):
     """
     OpenAI를 사용하여 AI 활용사례 콘텐츠를 생성합니다.
+    출처 표시와 '사례 확인해보기→' 링크를 포함합니다.
     """
     if not openai_api_key or not use_case_data:
         # OpenAI API가 없거나 검색 결과가 없는 경우 기본 콘텐츠 반환
@@ -262,7 +263,14 @@ def generate_ai_use_case_content(openai_api_key, use_case_data):
         </ol>
         
         <p><strong>추천 프롬프트:</strong> "다음 코드를 분석하고 문제점을 찾아주세요. 그 후 모던 자바스크립트 관행과 디자인 패턴을 적용하여 리팩토링된 버전을 제공해주세요. 코드의 각 부분이 하는 일을 주석으로 설명하고, 리팩토링의 이유도 함께 설명해주세요."</p>
+        
+        <p style="text-align: right; margin-top: 15px;"><a href="https://github.com/features/copilot" target="_blank" style="color: #ff5722; text-decoration: none; font-weight: bold;">사례 확인해보기 →</a></p>
+        <p style="font-size: 8pt; text-align: right; color: #666;">출처: GitHub Copilot</p>
         """
+    
+    # 선택된 활용사례 링크와 출처를 저장할 변수
+    selected_source = ""
+    selected_link = ""
     
     # 검색 데이터를 기반으로 OpenAI 프롬프트 구성
     use_case_info = "AI 활용사례 검색 결과:\n\n"
@@ -274,7 +282,8 @@ def generate_ai_use_case_content(openai_api_key, use_case_data):
         
         use_case_info += f"{i+1}. 제목: {title}\n"
         use_case_info += f"   설명: {description}\n"
-        use_case_info += f"   링크: {item['link']}\n\n"
+        use_case_info += f"   링크: {item['link']}\n"
+        use_case_info += f"   블로그명: {item.get('bloggername', '알 수 없음')}\n\n"
     
     client = OpenAI(api_key=openai_api_key)
     
@@ -297,6 +306,10 @@ def generate_ai_use_case_content(openai_api_key, use_case_data):
         
         모든 내용은 반드시 제공된 검색 결과에서만 추출해야 합니다. 가상의 정보나 사실이 아닌 내용은 절대 포함하지 마세요.
         내용은 마크다운 형식으로 작성해주세요.
+        
+        마지막에 선택한 활용사례의 정보에서 다음 정보를 별도로 표시해주세요:
+        - SOURCE_URL: 선택한 활용사례의 원본 링크
+        - SOURCE_NAME: 선택한 활용사례의 출처(블로그명 또는 웹사이트 이름)
         """
         
         response = client.chat.completions.create(
@@ -308,7 +321,39 @@ def generate_ai_use_case_content(openai_api_key, use_case_data):
             temperature=0.7
         )
         
-        return convert_markdown_to_html(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        
+        # 출처 URL과 이름 추출
+        import re
+        source_url_match = re.search(r"SOURCE_URL: (https?://\S+)", content)
+        source_name_match = re.search(r"SOURCE_NAME: (.+)$", content, re.MULTILINE)
+        
+        if source_url_match:
+            selected_link = source_url_match.group(1).strip()
+            # 출처 정보는 표시에서 제거
+            content = re.sub(r"SOURCE_URL: https?://\S+", "", content)
+        
+        if source_name_match:
+            selected_source = source_name_match.group(1).strip()
+            # 출처 정보는 표시에서 제거
+            content = re.sub(r"SOURCE_NAME: .+$", "", content, flags=re.MULTILINE)
+        
+        # 링크가 없는 경우 첫 번째 항목의 링크 사용
+        if not selected_link and use_case_data:
+            selected_link = use_case_data[0]['link']
+            
+        # 출처가 없는 경우 첫 번째 항목의 블로그명 사용
+        if not selected_source and use_case_data:
+            selected_source = use_case_data[0].get('bloggername', '출처 정보 없음')
+        
+        # 출처 표시와 링크 추가
+        content_html = convert_markdown_to_html(content)
+        content_html += f"""
+        <p style="text-align: right; margin-top: 15px;"><a href="{selected_link}" target="_blank" style="color: #ff5722; text-decoration: none; font-weight: bold;">사례 확인해보기 →</a></p>
+        <p style="font-size: 8pt; text-align: right; color: #666;">출처: {selected_source}</p>
+        """
+        
+        return content_html
     except Exception as e:
         print(f"OpenAI API 오류: {str(e)}")
         # 오류 발생 시 기본 콘텐츠 반환
@@ -326,6 +371,9 @@ def generate_ai_use_case_content(openai_api_key, use_case_data):
         </ol>
         
         <p><strong>추천 프롬프트:</strong> "고객 서비스용 AI 챗봇을 만들기 위해, 우리 회사의 자주 묻는 질문 목록을 분석하고 효과적인 응답 템플릿을 제안해주세요. 각 질문 유형별로 챗봇이 어떻게 응답해야 할지 예시를 포함해주세요."</p>
+        
+        <p style="text-align: right; margin-top: 15px;"><a href="https://www.ibm.com/watson/ai-customer-service" target="_blank" style="color: #ff5722; text-decoration: none; font-weight: bold;">사례 확인해보기 →</a></p>
+        <p style="font-size: 8pt; text-align: right; color: #666;">출처: IBM Watson</p>
         """
 
 

@@ -1,11 +1,11 @@
 import streamlit as st
-from openai import OpenAI
 from datetime import datetime, timedelta
 import time
 import base64
 import os
 import re
 import requests
+# import json  # 필요한 경우 추가
 
 def convert_markdown_to_html(text):
     """마크다운 텍스트를 HTML로 변환합니다."""
@@ -101,61 +101,43 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
+def fetch_naver_news(client_id, client_secret, query, display=5):
     """
-    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
-    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
-    """
-    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
-    end_date = datetime.now()
-    # 무료 플랜 제한을 고려하여 기간을 줄임
-    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
+    네이버 검색 API를 사용하여 뉴스를 가져옵니다.
     
-    # NewsAPI 요청
-    url = "https://newsapi.org/v2/everything"
+    Parameters:
+    client_id (str): 네이버 개발자 센터에서 발급받은 Client ID
+    client_secret (str): 네이버 개발자 센터에서 발급받은 Client Secret
+    query (str): 검색할 키워드
+    display (int): 가져올 뉴스 수 (최대 100)
+    
+    Returns:
+    list: 뉴스 기사 목록
+    """
+    url = "https://openapi.naver.com/v1/search/news.json"
+    headers = {
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret
+    }
     params = {
-        'q': query,
-        'from': start_date.strftime('%Y-%m-%d'),
-        'to': end_date.strftime('%Y-%m-%d'),
-        'sortBy': 'publishedAt',
-        'language': language,
-        'apiKey': api_key
+        "query": query,
+        "display": display,
+        "sort": "date"  # 최신순으로 정렬
     }
     
-    response = requests.get(url, params=params)
+    response = requests.get(url, headers=headers, params=params)
     
     if response.status_code == 200:
-        news_data = response.json()
-        return news_data['articles']
+        result = response.json()
+        return result['items']
     else:
-        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
+        raise Exception(f"네이버 뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
-def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
-    os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
-    
-    # OpenAI 클라이언트 초기화
-    client = OpenAI(api_key=openai_api_key)
+def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_query="AI 인공지능", issue_num=1, highlight_settings=None):
+    """네이버 API만 사용하여 뉴스레터를 생성합니다."""
     
     date = datetime.now().strftime('%Y년 %m월 %d일')
     issue_number = issue_num
-
-    # 현재 주차 계산 (이슈 번호를 주차로 사용)
-    current_week = issue_num
-    
-    # AI 팁 주제 데이터베이스 - 여러 주제를 순환하여 제공
-    ai_tip_topics = [
-        "효과적인 프롬프트 작성의 기본 원칙 (Chain of Thought, Chain of Draft)",
-        "특정 업무별 최적의 프롬프트 템플릿",
-        "AI를 활용한 데이터 분석 프롬프트 기법",
-        "창의적 작업을 위한 AI 프롬프트 전략",
-        "AI와 협업하여 문제 해결하기",
-        "다양한 AI 도구 활용법 비교",
-        "업무 자동화를 위한 AI 프롬프트 설계",
-        "AI를 활용한 의사결정 지원 기법"
-    ]
-    
-    # 현재 주차에 해당하는 주제 선택 (순환)
-    current_topic = ai_tip_topics[(current_week - 1) % len(ai_tip_topics)]
     
     # 하이라이트 설정 기본값
     if highlight_settings is None:
@@ -166,183 +148,142 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             "link_url": "#"
         }
     
-    # 실시간 뉴스 가져오기 - 일반 뉴스
-    news_info = ""
-    try:
-        # 무료 플랜은 최근 1주일 정도의 데이터만 접근 가능하므로 days=7로 설정
-        news_articles = fetch_real_time_news(news_api_key, query=news_query, days=7, language=language)
-        # 상위 5개 뉴스 선택
-        top_news = news_articles[:5]
-        
-        # GPT-4에 전달할 뉴스 정보 준비
-        news_info = "최근 7일 내 수집된 실제 뉴스 기사:\n\n"
-        for i, article in enumerate(top_news):
-            # 날짜 포맷 변환
-            pub_date = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')).strftime('%Y년 %m월 %d일')
-            news_info += f"{i+1}. 제목: {article['title']}\n"
-            news_info += f"   날짜: {pub_date}\n"
-            news_info += f"   요약: {article['description']}\n"
-            news_info += f"   출처: {article['source']['name']}\n"
-            news_info += f"   URL: {article['url']}\n\n"
-    except Exception as e:
-        news_info = f"실시간 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
-        st.error(f"뉴스 API 오류: {str(e)}")
-    
-    # OpenAI 관련 뉴스 가져오기
-    openai_news_info = ""
-    try:
-        # OpenAI 관련 뉴스 검색
-        openai_articles = fetch_real_time_news(news_api_key, query="OpenAI", days=7, language=language)
-        # 상위 3개 뉴스 선택
-        top_openai_news = openai_articles[:3]
-        
-        # GPT-4에 전달할 OpenAI 뉴스 정보 준비
-        openai_news_info = "최근 7일 내 수집된 OpenAI 관련 뉴스 기사:\n\n"
-        for i, article in enumerate(top_openai_news):
-            # 날짜 포맷 변환
-            pub_date = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')).strftime('%Y년 %m월 %d일')
-            openai_news_info += f"{i+1}. 제목: {article['title']}\n"
-            openai_news_info += f"   날짜: {pub_date}\n"
-            openai_news_info += f"   요약: {article['description']}\n"
-            openai_news_info += f"   출처: {article['source']['name']}\n"
-            openai_news_info += f"   URL: {article['url']}\n\n"
-    except Exception as e:
-        openai_news_info = f"OpenAI 관련 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
-        st.error(f"OpenAI 뉴스 API 오류: {str(e)}")
-    
-    prompts = {
-        'main_news': f"""
-        AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
-        오늘 날짜는 {date}입니다. 아래는 두 종류의 뉴스 기사입니다:
-        
-        === OpenAI 관련 뉴스 ===
-        {openai_news_info}
-        
-        === 일반 뉴스 ===
-        {news_info}
-        
-        총 2개의 주요 소식을 다음 형식으로 작성해주세요:
-        
-        1. 먼저 OpenAI 관련 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
-        2. 그 다음 일반 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
-        
-        각 소식은 다음 형식으로 작성해주세요:
-        ## [주제]의 [핵심 강점/특징]은 [주목할만합니다/확인됐습니다/중요합니다].
-        
-        간략한 내용을 1-2문장으로 작성하세요. 내용은 특정 기술이나 서비스, 기업의 최신 소식을 다루고, 
-        핵심 내용만 포함해주세요. 그리고 왜 중요한지를 강조해주세요.
-        
-        구체적인 수치나 인용구가 있다면 추가해주세요.
-        
-        각 소식의 마지막에는 뉴스 기사의 발행일과 출처를 반드시 "[출처 제목](출처 URL)" 형식으로 포함하세요.
-        
-        모든 주제는 반드시 제공된 실제 뉴스 기사에서만 추출해야 합니다. 가상의 정보나 사실이 아닌 내용은 절대 포함하지 마세요.
-        각 소식 사이에 충분한 공백을 두어 가독성을 높여주세요.
-        """,
-
-        'aidt_tips': f"""
-        AIDT Weekly 뉴스레터의 '이번 주 AT/DT 팁' 섹션을 생성해주세요.
-        
-        이번 주 팁 주제는 "{current_topic}"입니다.
-        
-        이 주제에 대해 다음 형식으로 실용적인 팁을 작성해주세요:
-        
-        ## 이번 주 팁: [주제에 맞는 구체적인 팁 제목]
-        
-        팁에 대한 배경과 중요성을 2-3문장으로 간결하게 설명해주세요. AI 기본기와 관련된 내용을 포함하세요.
-        특히, 영어 용어는 한글로 번역하지 말고 그대로 사용해주세요 (예: "Chain of Thought", "Chain of Draft").
-        
-        **핵심 프롬프트 예시:**
-        - 첫 번째 프롬프트 템플릿 (Chain of Thought 활용):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [구체적인 Chain of Thought 프롬프트 템플릿을 작성하세요]
-        
-        - 두 번째 프롬프트 템플릿 (Chain of Draft 활용):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [구체적인 Chain of Draft 프롬프트 템플릿을 작성하세요]
-        
-        - 세 번째 프롬프트 템플릿 (Chain of Thought와 Chain of Draft 결합):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [두 기법을 결합한 프롬프트 템플릿을 작성하세요]
-        
-        이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
-        
-        다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
-        """,
-
-        # 다른 프롬프트들은 변경 없음
-        'success_story': """
-        AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
-        한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
-        각 사례는 제목과 3개의 단락으로 구성되어야 합니다.
-        각 단락은 3~4줄로 구성하고, 구체적인 내용과 핵심 정보를 포함해야 합니다.
-        단락 사이에는 한 줄을 띄워서 가독성을 높여주세요.
-        
-        형식:
-        
-        ## [한국 기업명]의 AI 혁신 사례
-        
-        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
-        
-        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
-        
-        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
-        
-        ## [외국 기업명]의 AI 혁신 사례
-        
-        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
-        
-        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
-        
-        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
-        """,
-        'events': f"""
-        AIDT Weekly 뉴스레터의 '다가오는 이벤트' 섹션을 생성해주세요.
-        현재 날짜는 {date}입니다.
-        형식:
-        
-        ## 컨퍼런스/웨비나 제목
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: [장소 또는 온라인 여부]
-        - 내용: 한 문장으로 간략한 설명
-        
-        ## 다른 이벤트 제목
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: [장소 또는 온라인 여부]
-        - 내용: 한 문장으로 간략한 설명
-        """,
-        'qa': """
-        AIDT Weekly 뉴스레터의 'Q&A' 섹션을 생성해주세요.
-        형식:
-        
-        ## 간단명료한 질문?
-        
-        답변을 2-3문장으로 간결하게 작성해주세요. 불필요한 설명은 제외하고 핵심 정보만 포함해주세요.
-        """
-    }
-    
+    # 뉴스레터 콘텐츠를 저장할 딕셔너리
     newsletter_content = {}
     
-    for section, prompt in prompts.items():
-        try:
-            # 사용자가 입력한 성공 사례가 있으면 생성 건너뛰기
-            if section == 'success_story' and custom_success_story:
-                newsletter_content[section] = convert_markdown_to_html(custom_success_story)
-                continue
-                
-            response = client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=[
-                    {"role": "system", "content": "AI 디지털 트랜스포메이션 뉴스레터 콘텐츠 생성 전문가. 간결하고 핵심적인 내용만 포함한 뉴스레터를 작성합니다."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
-            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
-        except Exception as e:
-            newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
+    # 네이버 뉴스 가져오기 - 일반 AI 뉴스
+    try:
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=5)
+        
+        # 주요 소식 섹션 콘텐츠 생성
+        main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
+        
+        for i, article in enumerate(ai_news_items[:3]):  # 상위 3개 뉴스만 사용
+            # HTML 태그 제거
+            title = article['title'].replace("<b>", "").replace("</b>", "")
+            description = article['description'].replace("<b>", "").replace("</b>", "")
+            
+            main_news_content += f"<h3>{title}</h3>"
+            main_news_content += f"<p>{description}</p>"
+            main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+            
+            if i < 2:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                main_news_content += "<hr>"
+        
+        newsletter_content['main_news'] = main_news_content
+        
+    except Exception as e:
+        newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
+        st.error(f"네이버 API 오류: {str(e)}")
+    
+    # 네이버 AI 트렌드 뉴스 가져오기
+    try:
+        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=5)
+        
+        # AI 트렌드 섹션 콘텐츠 생성
+        trend_news_content = "<h2>AI 트렌드 소식</h2>"
+        
+        for i, article in enumerate(trend_news_items[:2]):  # 상위 2개 뉴스만 사용
+            # HTML 태그 제거
+            title = article['title'].replace("<b>", "").replace("</b>", "")
+            description = article['description'].replace("<b>", "").replace("</b>", "")
+            
+            trend_news_content += f"<h3>{title}</h3>"
+            trend_news_content += f"<p>{description}</p>"
+            trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+            
+            if i < 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                trend_news_content += "<hr>"
+        
+        newsletter_content['ai_trends'] = trend_news_content
+        
+    except Exception as e:
+        newsletter_content['ai_trends'] = f"<p>AI 트렌드 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
+        st.error(f"네이버 API 오류: {str(e)}")
+    
+    # AT/DT 팁 섹션 (간단한 정적 콘텐츠로 대체)
+    at_dt_tips_content = """
+    <div class="tip-title">이번 주 팁: 효과적인 프롬프트 작성의 기본 원칙</div>
+    
+    <p>AI를 더 효과적으로 활용하기 위해서는 명확하고 구체적인 프롬프트를 작성하는 것이 중요합니다. Chain of Thought와 Chain of Draft 기법을 활용하면 더 정확한 결과를 얻을 수 있습니다.</p>
+    
+    <div class="prompt-examples-title">핵심 프롬프트 예시:</div>
+    
+    <div class="prompt-template">
+    <div class="template-title">- 첫 번째 프롬프트 템플릿 (Chain of Thought 활용):</div>
+    <div class="template-content">
+    <div class="example-label">예시:</div>
+    <div class="example-content">이 보고서를 요약해주세요.</div>
+    <div class="prompt-label">프롬프트:</div>
+    <div class="prompt-content">이 보고서의 핵심 주제와 중요한 발견 사항을 파악하고, 주요 결론을 도출해주세요. 단계별로 생각하며 요약해주세요.</div>
+    </div>
+    </div>
+    
+    <div class="prompt-template">
+    <div class="template-title">- 두 번째 프롬프트 템플릿 (Chain of Draft 활용):</div>
+    <div class="template-content">
+    <div class="example-label">예시:</div>
+    <div class="example-content">이메일을 작성해주세요.</div>
+    <div class="prompt-label">프롬프트:</div>
+    <div class="prompt-content">고객에게 보낼 이메일을 작성해주세요. 먼저 초안을 작성하고, 그 다음 더 공손하고 전문적인 어조로 다듬어주세요.</div>
+    </div>
+    </div>
+    
+    <div class="tip-footer">다음 주에는 특정 업무별 최적의 프롬프트 템플릿에 대해 알려드리겠습니다.</div>
+    """
+    
+    newsletter_content['aidt_tips'] = at_dt_tips_content
+    
+    # 성공 사례 섹션 (간단한 정적 콘텐츠로 대체)
+    success_story_content = """
+    <h2>삼성전자의 AI 혁신 사례</h2>
+    
+    <p>삼성전자는 생산 라인의 불량품 검출률을 높이기 위해 AI 비전 시스템 도입을 결정했습니다. 기존의 수동 검사 방식으로는 약 92%의 정확도를 보였으며, 검사 시간이 길어 생산성 저하의 원인이 되었습니다. 특히 미세한 결함을 감지하는 데 어려움이 있었습니다.</p>
+    
+    <p>삼성전자는 딥러닝 기반의 컴퓨터 비전 시스템을 구축하고, 수십만 장의 정상 및 불량 제품 이미지로 AI 모델을 학습시켰습니다. 이 시스템은 실시간으로 제품을 스캔하고 결함을 자동으로 식별하며, 결함의 유형과 심각성까지 분류할 수 있도록 설계되었습니다.</p>
+    
+    <p>AI 시스템 도입 후 불량품 검출 정확도가 92%에서 98.5%로 향상되었으며, 검사 시간은 60% 단축되었습니다. 이로 인해 연간 약 150억 원의 비용 절감 효과를 얻었으며, 제품 품질 향상으로 고객 반품률도 15% 감소했습니다.</p>
+    
+    <h2>Google의 AI 혁신 사례</h2>
+    
+    <p>Google은 데이터 센터의 에너지 효율성을 개선하기 위해 DeepMind AI 시스템을 도입했습니다. 데이터 센터는 전 세계 전력 소비의 상당 부분을 차지하며, 냉각 시스템이 특히 많은 에너지를 소비합니다. 기존의 냉각 시스템은 수동 설정과 기본 알고리즘에 의존하여 최적화가 어려웠습니다.</p>
+    
+    <p>Google은 DeepMind의 강화학습 AI 시스템을 활용하여 수천 개의 센서 데이터를 분석하고 냉각 시스템을 자동으로 최적화하는 솔루션을 개발했습니다. 이 AI는 외부 온도, 서버 부하, 전력 사용량 등 다양한 변수를 고려하여 실시간으로 냉각 시스템을 조정합니다.</p>
+    
+    <p>AI 시스템 도입 결과, Google 데이터 센터의 냉각 에너지 소비가 약 40% 감소했으며, 전체 PUE(전력 사용 효율성)가 15% 개선되었습니다. 이는 연간 수백만 달러의 비용 절감과 탄소 배출량 감소로 이어졌으며, 다른 데이터 센터에도 적용 가능한 모델을 제시했습니다.</p>
+    """
+    
+    newsletter_content['success_story'] = success_story_content
+    
+    # 다가오는 이벤트 섹션 (간단한 정적 콘텐츠로 대체)
+    events_content = """
+    <h2>AI 컨퍼런스 2025</h2>
+    <ul>
+      <li>날짜/시간: 2025년 4월 15-16일</li>
+      <li>장소/형식: 서울 코엑스 / 오프라인 컨퍼런스</li>
+      <li>내용: 최신 AI 기술 트렌드와 기업 적용 사례 공유</li>
+    </ul>
+    
+    <h2>디지털 트랜스포메이션 웨비나</h2>
+    <ul>
+      <li>날짜/시간: 2025년 3월 25일 오후 2시</li>
+      <li>장소/형식: 온라인 (Zoom)</li>
+      <li>내용: 디지털 트랜스포메이션을 위한 실용적인 로드맵과 전략</li>
+    </ul>
+    """
+    
+    newsletter_content['events'] = events_content
+    
+    # Q&A 섹션 (간단한 정적 콘텐츠로 대체)
+    qa_content = """
+    <h2>우리 회사에 AI를 도입하려면 어떻게 시작해야 하나요?</h2>
+    
+    <p>AI 도입은 명확한 문제 정의부터 시작하세요. 먼저 AI로 해결할 수 있는 구체적인 비즈니스 문제를 파악하고, 작은 파일럿 프로젝트로 시작하는 것이 좋습니다. 내부 역량을 평가하고 필요한 경우 외부 전문가의 도움을 받으세요.</p>
+    """
+    
+    newsletter_content['qa'] = qa_content
 
-# CSS 스타일과 HTML 템플릿
+    # CSS 스타일과 HTML 템플릿
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -546,6 +487,13 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 </div>
                 
                 <div class="section">
+                    <div class="section-title">AI 트렌드</div>
+                    <div class="section-container main-news">
+                        {newsletter_content['ai_trends']}
+                    </div>
+                </div>
+                
+                <div class="section">
                     <div class="section-title">이번 주 AT/DT 팁</div>
                     <div class="section-container aidt-tips">
                         {newsletter_content['aidt_tips']}
@@ -591,14 +539,20 @@ def create_download_link(html_content, filename):
     return href
 
 def main():
-    st.title("AIDT 뉴스레터 생성기")
-    st.write("GPT-4와 실시간 뉴스 API를 활용하여 AI 디지털 트랜스포메이션 관련 뉴스레터를 자동으로 생성합니다.")
+    st.title("AIDT 뉴스레터 생성기 (네이버 API 테스트 버전)")
+    st.write("네이버 API를 활용하여 AI 디지털 트랜스포메이션 관련 뉴스레터를 자동으로 생성합니다.")
     
     # API 키 입력
     with st.expander("API 키 설정", expanded=True):
-        st.info("NewsAPI.org에서 API 키를 발급받을 수 있습니다. (https://newsapi.org)")
-        openai_api_key = st.text_input("OpenAI API 키 입력", type="password")
-        news_api_key = st.text_input("News API 키 입력", type="password")
+        st.info("네이버 개발자 센터에서 Client ID와 Client Secret을 발급받을 수 있습니다. (https://developers.naver.com)")
+        
+        # OpenAI API 키는 주석 처리
+        # openai_api_key = st.text_input("OpenAI API 키 입력", type="password")
+        # news_api_key = st.text_input("News API 키 입력", type="password")
+        
+        # 네이버 API 관련 입력 필드
+        naver_client_id = st.text_input("네이버 Client ID 입력", type="password")
+        naver_client_secret = st.text_input("네이버 Client Secret 입력", type="password")
     
     # 뉴스레터 기본 설정
     with st.expander("뉴스레터 기본 설정", expanded=True):
@@ -607,17 +561,8 @@ def main():
         # 뉴스 검색 설정
         news_query = st.text_input(
             "뉴스 검색어", 
-            value="Telecommunication AND AI digital transformation AND artificial intelligence",
-            help="뉴스 API 검색어를 입력하세요. OR, AND 등의 연산자를 사용할 수 있습니다."
-        )
-        
-        st.info("⚠️ 참고: NewsAPI 무료 플랜은 약 7일 이내의 최신 뉴스만 조회할 수 있습니다. 더 오래된 뉴스를 조회하려면 유료 플랜으로 업그레이드해야 합니다.")
-        
-        language = st.selectbox(
-            "뉴스 언어", 
-            options=["en", "ko", "ja", "zh", "fr", "de"],
-            format_func=lambda x: {"en": "영어", "ko": "한국어", "ja": "일본어", "zh": "중국어", "fr": "프랑스어", "de": "독일어"}[x],
-            help="뉴스 검색 결과의 언어를 선택하세요."
+            value="AI 인공지능 디지털 트랜스포메이션",
+            help="네이버 API 검색어를 입력하세요. 여러 키워드는 공백으로 구분됩니다."
         )
     
     # 하이라이트 박스 설정
@@ -627,41 +572,21 @@ def main():
         highlight_link_text = st.text_input("링크 텍스트", value="AT/DT 추진방향 →")
         highlight_link_url = st.text_input("링크 URL", value="#")
     
-    # 성공 사례 사용자 입력 옵션
-    with st.expander("성공 사례 직접 입력"):
-        use_custom_success = st.checkbox("성공 사례를 직접 입력하시겠습니까?")
-        
-        custom_success_story = None
-        if use_custom_success:
-            st.write("아래에 성공 사례를 마크다운 형식으로 입력하세요. 한국 기업과 외국 기업 사례 각 1개씩 포함해주세요.")
-            st.write("각 사례는 3개의 단락으로 구성하고, 단락당 3-4줄로 작성해주세요.")
-            st.write("예시 형식:")
-            st.code("""
-## 삼성전자의 AI 혁신 사례
-
-첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-## Google의 AI 혁신 사례
-
-첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-            """)
-            
-            custom_success_story = st.text_area("성공 사례 직접 입력", height=400)
+    # 성공 사례 사용자 입력 옵션은 현재 비활성화 (정적 콘텐츠 사용)
+    # with st.expander("성공 사례 직접 입력"):
+    #     use_custom_success = st.checkbox("성공 사례를 직접 입력하시겠습니까?")
+    #     
+    #     custom_success_story = None
+    #     if use_custom_success:
+    #         st.write("아래에 성공 사례를 마크다운 형식으로 입력하세요.")
+    #         custom_success_story = st.text_area("성공 사례 직접 입력", height=400)
     
     # 뉴스레터 생성 버튼
     if st.button("뉴스레터 생성"):
-        if not openai_api_key or not news_api_key:
-            st.error("OpenAI API 키와 News API 키를 모두 입력하세요.")
+        if not naver_client_id or not naver_client_secret:
+            st.error("네이버 Client ID와 Client Secret을 모두 입력하세요.")
         else:
-            with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
+            with st.spinner("뉴스레터 생성 중... (약 30초 소요될 수 있습니다)"):
                 try:
                     # 하이라이트 설정 딕셔너리 생성
                     highlight_settings = {
@@ -671,12 +596,10 @@ def main():
                         "link_url": highlight_link_url
                     }
                     
-                    html_content = generate_newsletter(
-                        openai_api_key, 
-                        news_api_key,
+                    html_content = generate_newsletter_naver_only(
+                        naver_client_id, 
+                        naver_client_secret,
                         news_query,
-                        language,
-                        custom_success_story if use_custom_success else None, 
                         issue_number,
                         highlight_settings
                     )
@@ -685,7 +608,7 @@ def main():
                     st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
                     st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
                     
-                    # 미리보기 표시 (iframe 사용) - HTML 태그가 그대로 보이는 문제 수정
+                    # 미리보기 표시 (iframe 사용)
                     st.subheader("생성된 뉴스레터")
                     
                     # HTML 특수 문자 처리와 Content-Security-Policy 추가
@@ -706,4 +629,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

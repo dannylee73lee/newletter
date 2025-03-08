@@ -68,14 +68,36 @@ def convert_markdown_to_html(text):
     
     # 이벤트 섹션 특별 처리 - 줄간격 조정
     if ("날짜/시간" in text and "장소/형식" in text and "내용:" in text):
-        # 이벤트 항목 처리
-        text = re.sub(
-            r'(\- 날짜/시간:.*?)(\r?\n\- 장소/형식:.*?)(\r?\n\- 내용:.*?)(\r?\n|$)',
-            r'<div class="event-item">\1\2\3</div>\4',
-            text,
-            flags=re.DOTALL
-        )
-    
+        # [국내] 또는 [해외] 이벤트 항목 처리
+        if "[국내]" in text or "[해외]" in text:
+            text = re.sub(
+                r'(## \[(국내|해외)\].*?)(\r?\n\- 날짜/시간:.*?)(\r?\n\- 장소/형식:.*?)(\r?\n\- 내용:.*?)(\r?\n|$)',
+                r'<div class="event-item">\1\3\4\5</div>\6',
+                text,
+                flags=re.DOTALL
+            )
+        # 사내 공지 항목 처리
+        else:
+            text = re.sub(
+                r'(## .*?)(\r?\n\- 날짜/시간:.*?)(\r?\n\- 장소/형식:.*?)(\r?\n\- 내용:.*?)(\r?\n|$)',
+                r'<div class="notice-item">\1\2\3\4</div>\5',
+                text,
+                flags=re.DOTALL
+            )
+
+    # 사용자가 직접 입력한 사내 공지가 있는 경우
+    if custom_notice:
+        # 이벤트 섹션과 사내 공지 섹션 합치기
+        combined_events = f'''{newsletter_content['events']}
+        
+        <div class="section-divider"></div>
+        <h2 class="notice-title">[사내 공지]</h2>
+        <div class="notice-section">
+            {convert_markdown_to_html(custom_notice)}
+        </div>'''
+        newsletter_content['events'] = combined_events
+
+
     # 제목 변환 (# 제목)
     text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
     text = re.sub(r'^## (.*)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
@@ -312,17 +334,20 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         AIDT Weekly 뉴스레터의 '국내/외 행사' 섹션을 생성해주세요.
         현재 날짜는 {date}입니다.
 
-        총 2개의 행사 정보를 생성하되, 국내 행사 1개와 해외 행사 1개를 반드시 포함해주세요.
+        총 2개의 행사 정보를 생성하되, 다음 조건을 만족해야 합니다:
+        1. 국내 행사 1개 - 오프라인 행사 중심으로 찾아주세요
+        2. 해외 행사 1개 - 온라인으로 참여 가능한 행사 중심으로 찾아주세요
+
         각 행사는 다음 형식으로 생성해주세요:
 
         ## [국내] [행사명]
         - 날짜/시간: [날짜 정보]
-        - 장소/형식: [장소 또는 온라인 여부]
+        - 장소/형식: [오프라인 장소]
         - 내용: 간략한 설명 (한 문장으로)
 
         ## [해외] [행사명]
         - 날짜/시간: [날짜 정보]
-        - 장소/형식: [장소 또는 온라인 여부]
+        - 장소/형식: 온라인 (참여 방법 간략히)
         - 내용: 간략한 설명 (한 문장으로)
         """,
         
@@ -546,10 +571,24 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             }}
             
             /* 이벤트 섹션 스타일 */
-            .event-item {{
-                margin-bottom: 10px; /* 각 이벤트 항목 사이 간격 */
+            .event-section {{
+                font-size: 10pt; /* 모든 글자 크기 10pt로 통일 */
             }}
 
+            .event-item {{
+                margin-bottom: 20px; /* 각 이벤트 항목(국내/해외) 사이 간격 */
+            }}
+
+            .event-item:last-child {{
+                margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
+            }}
+
+            .event-item h2 {{
+                font-size: 10pt; /* 제목 글자 크기도 10pt로 설정 */
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            
             .event-item br {{
                 display: inline; /* 항목 내부 줄바꿈 제거 */
                 line-height: 1; /* 줄간격 최소화 */
@@ -567,6 +606,30 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 color: #333;
                 margin: 10px 0;
             }}
+
+            .notice-section {{
+                font-size: 10pt; /* 사내 공지도 10pt 글자 크기 */
+            }}
+
+            .notice-item {{
+                margin-bottom: 15px; /* 공지 항목 간 간격 */
+            }}
+
+            .notice-item:last-child {{
+                margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
+            }}
+
+            .notice-item h2 {{
+                font-size: 10pt; /* 공지 제목도 10pt */
+                font-weight: bold;
+                margin-bottom: 5px;
+            }}
+
+            .notice-item br {{
+                display: inline; /* 항목 내부 줄바꿈 제거 */
+                line-height: 1; /* 줄간격 최소화 */
+            }}
+
         </style>
     </head>
     <body>
@@ -610,7 +673,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 
                 <div class="section">
                     <div class="section-title">국내/외 행사</div>
-                    <div class="section-container">
+                    <div class="section-container event-section">
                         {newsletter_content['events']}
                     </div>
                 </div>

@@ -1,149 +1,30 @@
-import streamlit as st
-from openai import OpenAI
+# models.py
+from dataclasses import dataclass
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-import time
-import base64
-import os
-import re
 import requests
+from openai import OpenAI
+import re
+from models import InternalEvent, HighlightSettings, NewsletterConfig
+from news_service import NewsService
+from events_service import EventsService
+from html_converter import convert_markdown_to_html, get_newsletter_styles
+import streamlit as st
+import base64
+from newsletter_generator import NewsletterGenerator
 
-def convert_markdown_to_html(text):
-    """마크다운 텍스트를 HTML로 변환합니다."""
-    # AT/DT 팁 섹션 특별 처리
-    if "이번 주 팁:" in text or "핵심 프롬프트 예시" in text:
-        # "이번 주 팁:" 제목을 특별 클래스로 처리
-        text = re.sub(r'^## 이번 주 팁: (.*?)$', r'<div class="tip-title">이번 주 팁: \1</div>', text, flags=re.MULTILINE)
-        
-        # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
-        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
-        
-        # 프롬프트 템플릿 처리 (Chain of Thought/Chain of Draft 등)
-        # 각 템플릿은 제목(색상 강조), 예시, 내용으로 구성됨
-        
-        # 첫 번째 템플릿 (Chain of Thought)
-        text = re.sub(
-            r'- (첫 번째 프롬프트 템플릿 \(Chain of Thought 활용\):)(.*?)(?=- 두 번째 프롬프트|$)',
-            r'<div class="prompt-template">'
-            r'<div class="template-title">\1</div>'
-            r'<div class="template-content">\2</div>'
-            r'</div>',
-            text, 
-            flags=re.DOTALL
-        )
-        
-        # 두 번째 템플릿 (Chain of Draft)
-        text = re.sub(
-            r'- (두 번째 프롬프트 템플릿 \(Chain of Draft 활용\):)(.*?)(?=- 세 번째 프롬프트|$)',
-            r'<div class="prompt-template">'
-            r'<div class="template-title">\1</div>'
-            r'<div class="template-content">\2</div>'
-            r'</div>',
-            text, 
-            flags=re.DOTALL
-        )
-        
-        # 세 번째 템플릿 (Chain of Thought와 Chain of Draft 결합)
-        text = re.sub(
-            r'- (세 번째 프롬프트 템플릿 \(Chain of Thought와 Chain of Draft 결합\):)(.*?)(?=이 팁을|$)',
-            r'<div class="prompt-template">'
-            r'<div class="template-title">\1</div>'
-            r'<div class="template-content">\2</div>'
-            r'</div>',
-            text, 
-            flags=re.DOTALL
-        )
-        
-        # 각 템플릿 내에서 예시와 프롬프트 순서 바꾸기
-        # 예시: 로 시작하는 부분을 <div class="example-label">예시:</div><div class="example-content">내용</div> 로 변환
-        text = re.sub(
-            r'<div class="template-content">(.*?)예시:(.*?)프롬프트:(.*?)</div>',
-            r'<div class="template-content"><div class="example-label">예시:</div><div class="example-content">\2</div><div class="prompt-label">프롬프트:</div><div class="prompt-content">\3</div></div>',
-            text,
-            flags=re.DOTALL
-        )
-        
-        # 마지막 문장 스타일 적용 (약간의 여백과 이탤릭체)
-        if "다음 주에는" in text:
-            text = re.sub(r'(다음 주에는.*?\.)', r'<div class="tip-footer">\1</div>', text)
-    
-    # 제목 변환 (# 제목)
-    text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.*)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^### (.*)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-    
-    # 굵은 텍스트 (**텍스트**)
-    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
-    
-    # 기울임 텍스트 (*텍스트*)
-    text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
-    
-    # 링크 변환 ([텍스트](URL))
-    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
-    
-    # 일반적인 글머리 기호 (- 항목) 처리 (이미 처리된 AT/DT 팁 예시는 제외)
-    if "prompt-template" not in text:
-        text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
-    
-    # 색상 표시 강조 - 주요 소식에서 사용할 수 있는 색상 강조 기능
-    text = re.sub(r'\[강조\](.*?)\[\/강조\]', r'<span style="color:#e74c3c; font-weight:bold;">\1</span>', text)
-    
-    # 줄바꿈을 <br>과 <p>로 변환
-    paragraphs = text.split('\n\n')
-    for i, paragraph in enumerate(paragraphs):
-        if not paragraph.startswith('<h') and not paragraph.startswith('<li') and not paragraph.startswith('<div'):
-            # 이미 HTML 태그가 아닌 경우만 <p> 태그로 감싸기
-            if '<li>' in paragraph:
-                # 리스트 항목이 있는 경우 <ul> 태그로 감싸기
-                paragraph = f'<ul>{paragraph}</ul>'
-            else:
-                paragraph = f'<p>{paragraph}</p>'
-        paragraphs[i] = paragraph.replace('\n', '<br>')
-    
-    return ''.join(paragraphs)
+@dataclass
+class InternalEvent:
+    """사내 이벤트를 위한 데이터 클래스"""
+    title: str
+    date_time: str
+    location: str
+    description: str
 
-def fetch_real_time_news(api_key, query="AI digital transformation", days=7, language="en"):
-    """
-    NewsAPI를 사용하여 실시간 뉴스를 가져옵니다.
-    무료 플랜은 최근 1개월(실제로는 더 짧을 수 있음) 데이터만 접근 가능합니다.
-    """
-    # 날짜 범위 계산 (API 제한으로 인해 기간을 줄임)
-    end_date = datetime.now()
-    # 무료 플랜 제한을 고려하여 기간을 줄임
-    start_date = end_date - timedelta(days=min(days, 7))  # 최대 7일로 제한
-    
-    # NewsAPI 요청
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        'q': query,
-        'from': start_date.strftime('%Y-%m-%d'),
-        'to': end_date.strftime('%Y-%m-%d'),
-        'sortBy': 'publishedAt',
-        'language': language,
-        'apiKey': api_key
-    }
-    
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        news_data = response.json()
-        return news_data['articles']
-    else:
-        raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
-
-def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
-    os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
-    
-    # OpenAI 클라이언트 초기화
-    client = OpenAI(api_key=openai_api_key)
-    
-    date = datetime.now().strftime('%Y년 %m월 %d일')
-    issue_number = issue_num
-
-    # 현재 주차 계산 (이슈 번호를 주차로 사용)
-    current_week = issue_num
-    
-    # AI 팁 주제 데이터베이스 - 여러 주제를 순환하여 제공
-    ai_tip_topics = [
+@dataclass
+class NewsletterConfig:
+    """뉴스레터 설정을 위한 데이터 클래스"""
+    AI_TIP_TOPICS: List[str] = (
         "효과적인 프롬프트 작성의 기본 원칙 (Chain of Thought, Chain of Draft)",
         "특정 업무별 최적의 프롬프트 템플릿",
         "AI를 활용한 데이터 분석 프롬프트 기법",
@@ -152,465 +33,413 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         "다양한 AI 도구 활용법 비교",
         "업무 자동화를 위한 AI 프롬프트 설계",
         "AI를 활용한 의사결정 지원 기법"
-    ]
+    )
+    MAX_NEWS_DAYS: int = 7
+    MAX_NEWS_ARTICLES: int = 5
+    MAX_OPENAI_NEWS: int = 3
+    DEFAULT_LANGUAGE: str = "en"
+
+@dataclass
+class HighlightSettings:
+    """하이라이트 박스 설정을 위한 데이터 클래스"""
+    title: str = "중부Infra AT/DT 뉴스레터 개시"
+    subtitle: str = "AI, 어떻게 시작할지 막막하다면?"
+    link_text: str = "AT/DT 추진방향 →"
+    link_url: str = "#"
+
+class NewsService:
+    """뉴스 API 관련 서비스 클래스"""
     
-    # 현재 주차에 해당하는 주제 선택 (순환)
-    current_topic = ai_tip_topics[(current_week - 1) % len(ai_tip_topics)]
-    
-    # 하이라이트 설정 기본값
-    if highlight_settings is None:
-        highlight_settings = {
-            "title": "중부Infra AT/DT 뉴스레터 개시",
-            "subtitle": "AI, 어떻게 시작할지 막막하다면?",
-            "link_text": "AT/DT 추진방향 →",
-            "link_url": "#"
-        }
-    
-    # 실시간 뉴스 가져오기 - 일반 뉴스
-    news_info = ""
-    try:
-        # 무료 플랜은 최근 1주일 정도의 데이터만 접근 가능하므로 days=7로 설정
-        news_articles = fetch_real_time_news(news_api_key, query=news_query, days=7, language=language)
-        # 상위 5개 뉴스 선택
-        top_news = news_articles[:5]
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://newsapi.org/v2/everything"
+        self.config = NewsletterConfig()
+
+    def fetch_news(self, query: str, days: int = 7, language: str = "en") -> List[Dict[str, Any]]:
+        """뉴스 API를 통해 뉴스 기사를 가져옵니다."""
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=min(days, self.config.MAX_NEWS_DAYS))
         
-        # GPT-4에 전달할 뉴스 정보 준비
+        params = {
+            'q': query,
+            'from': start_date.strftime('%Y-%m-%d'),
+            'to': end_date.strftime('%Y-%m-%d'),
+            'sortBy': 'publishedAt',
+            'language': language,
+            'apiKey': self.api_key
+        }
+        
+        response = requests.get(self.base_url, params=params)
+        
+        if response.status_code == 200:
+            news_data = response.json()
+            return news_data['articles'][:self.config.MAX_NEWS_ARTICLES]
+        else:
+            raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
+
+    def format_news_info(self, articles: List[Dict[str, Any]]) -> str:
+        """뉴스 기사 정보를 포맷팅합니다."""
         news_info = "최근 7일 내 수집된 실제 뉴스 기사:\n\n"
-        for i, article in enumerate(top_news):
-            # 날짜 포맷 변환
-            pub_date = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')).strftime('%Y년 %m월 %d일')
+        
+        for i, article in enumerate(articles):
+            pub_date = datetime.fromisoformat(
+                article['publishedAt'].replace('Z', '+00:00')
+            ).strftime('%Y년 %m월 %d일')
+            
             news_info += f"{i+1}. 제목: {article['title']}\n"
             news_info += f"   날짜: {pub_date}\n"
             news_info += f"   요약: {article['description']}\n"
             news_info += f"   출처: {article['source']['name']}\n"
             news_info += f"   URL: {article['url']}\n\n"
-    except Exception as e:
-        news_info = f"실시간 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
-        st.error(f"뉴스 API 오류: {str(e)}")
+            
+        return news_info
+
+class EventsService:
+    """이벤트 관련 서비스 클래스"""
     
-    # OpenAI 관련 뉴스 가져오기
-    openai_news_info = ""
-    try:
-        # OpenAI 관련 뉴스 검색
-        openai_articles = fetch_real_time_news(news_api_key, query="OpenAI", days=7, language=language)
-        # 상위 3개 뉴스 선택
-        top_openai_news = openai_articles[:3]
+    def __init__(self, openai_client: OpenAI):
+        self.client = openai_client
+
+    def generate_events_content(self, internal_events: Optional[List[InternalEvent]] = None) -> str:
+        """이벤트 섹션 컨텐츠를 생성합니다."""
+        prompt = """
+        AIDT Weekly 뉴스레터의 '주요 행사 안내' 섹션을 생성해주세요.
         
-        # GPT-4에 전달할 OpenAI 뉴스 정보 준비
-        openai_news_info = "최근 7일 내 수집된 OpenAI 관련 뉴스 기사:\n\n"
-        for i, article in enumerate(top_openai_news):
-            # 날짜 포맷 변환
-            pub_date = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')).strftime('%Y년 %m월 %d일')
-            openai_news_info += f"{i+1}. 제목: {article['title']}\n"
-            openai_news_info += f"   날짜: {pub_date}\n"
-            openai_news_info += f"   요약: {article['description']}\n"
-            openai_news_info += f"   출처: {article['source']['name']}\n"
-            openai_news_info += f"   URL: {article['url']}\n\n"
-    except Exception as e:
-        openai_news_info = f"OpenAI 관련 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
-        st.error(f"OpenAI 뉴스 API 오류: {str(e)}")
+        다음 형식으로 국내/외 주요 AI 컨퍼런스나 행사를 각각 1개씩 작성해주세요:
+        
+        ## 국내 주요 행사
+        날짜/시간: [날짜 정보]
+        장소/형식: [장소 또는 온라인 여부]
+        내용: [한 문장으로 간략한 설명]
+        
+        ## 해외 주요 행사
+        날짜/시간: [날짜 정보]
+        장소/형식: [장소 또는 온라인 여부]
+        내용: [한 문장으로 간략한 설명]
+        """
+        
+        if internal_events:
+            prompt += "\n\n## 사내 주요 일정\n"
+            for event in internal_events:
+                prompt += f"""
+                {event.title}
+                날짜/시간: {event.date_time}
+                장소/형식: {event.location}
+                내용: {event.description}
+                """
+
+        response = self.client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "AI 컨퍼런스와 행사 정보 전문가입니다. 명확하고 실용적인 정보만 제공합니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content
+
+def get_newsletter_styles() -> str:
+    """뉴스레터 스타일 CSS를 반환합니다."""
+    return """
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background-color: #333333;
+            color: white;
+            padding: 15px 20px;
+            text-align: left;
+        }
+        .title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 25px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        .section-title {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background-color: #3e3e3e;
+            padding: 8px 10px;
+            border-radius: 4px;
+        }
+        
+        /* 이벤트 섹션 특별 스타일 */
+        .events-section h2 {
+            font-size: 14px;
+            color: #333333;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .event-item {
+            margin-bottom: 15px;
+        }
+        .event-details {
+            margin-left: 15px;
+            line-height: 1.2;
+        }
+        .event-details p {
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+        }
+        .internal-events {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .internal-event-item {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #ddd;
+        }
+        .internal-event-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+    </style>
+    """
+
+def convert_markdown_to_html(text: str) -> str:
+    """마크다운 텍스트를 HTML로 변환합니다."""
     
-    prompts = {
-        'main_news': f"""
+    # 이벤트 섹션 특별 처리
+    if "주요 행사" in text:
+        # 이벤트 항목 간 줄간격 제거
+        text = re.sub(r'(날짜/시간:.*?)(\n\n)', r'\1\n', text, flags=re.DOTALL)
+        text = re.sub(r'(장소/형식:.*?)(\n\n)', r'\1\n', text, flags=re.DOTALL)
+        text = re.sub(r'(내용:.*?)(\n\n)', r'\1\n', text, flags=re.DOTALL)
+    
+    # AT/DT 팁 섹션 특별 처리
+    if "이번 주 팁:" in text:
+        text = re.sub(r'^## 이번 주 팁: (.*?)$', 
+                     r'<div class="tip-title">이번 주 팁: \1</div>', 
+                     text, flags=re.MULTILINE)
+        
+        # 프롬프트 예시 처리
+        text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', 
+                     r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', 
+                     text)
+    
+    # 기본 마크다운 변환
+    text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
+    text = re.sub(r'^## (.*)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
+    text = re.sub(r'^### (.*)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
+    
+    # 문단 처리
+    paragraphs = text.split('\n\n')
+    for i, paragraph in enumerate(paragraphs):
+        if not any(tag in paragraph for tag in ['<h', '<div', '<li']):
+            paragraphs[i] = f'<p>{paragraph}</p>'
+        paragraphs[i] = paragraph.replace('\n', '<br>')
+    
+    return ''.join(paragraphs)
+
+class NewsletterGenerator:
+    """뉴스레터 생성을 담당하는 클래스"""
+    
+    def __init__(self, openai_api_key: str, news_api_key: str):
+        self.openai_client = OpenAI(api_key=openai_api_key)
+        self.news_service = NewsService(news_api_key)
+        self.events_service = EventsService(self.openai_client)
+        self.config = NewsletterConfig()
+    
+    def generate_content(self, news_query: str, language: str, 
+                        internal_events: Optional[List[InternalEvent]] = None,
+                        issue_num: int = 1) -> Dict[str, str]:
+        """뉴스레터의 각 섹션 콘텐츠를 생성합니다."""
+        
+        # 뉴스 정보 수집
+        news_articles = self.news_service.fetch_news(news_query, self.config.MAX_NEWS_DAYS, language)
+        openai_articles = self.news_service.fetch_news("OpenAI", self.config.MAX_NEWS_DAYS, language)
+        
+        # 뉴스 정보 포맷팅
+        news_info = self.news_service.format_news_info(news_articles)
+        openai_news_info = self.news_service.format_news_info(openai_articles[:self.config.MAX_OPENAI_NEWS])
+        
+        # 현재 주차의 AI 팁 주제 선택
+        current_topic = self.config.AI_TIP_TOPICS[(issue_num - 1) % len(self.config.AI_TIP_TOPICS)]
+        
+        # 각 섹션 콘텐츠 생성
+        content = {}
+        
+        # 주요 소식 생성
+        content['main_news'] = self._generate_main_news(openai_news_info, news_info)
+        
+        # AT/DT 팁 생성
+        content['aidt_tips'] = self._generate_aidt_tips(current_topic)
+        
+        # 이벤트 섹션 생성
+        content['events'] = self.events_service.generate_events_content(internal_events)
+        
+        # 섹션별 HTML 변환
+        for section, text in content.items():
+            content[section] = convert_markdown_to_html(text)
+            
+        return content
+    
+    def _generate_main_news(self, openai_news: str, general_news: str) -> str:
+        """주요 소식 섹션을 생성합니다."""
+        prompt = f"""
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
-        오늘 날짜는 {date}입니다. 아래는 두 종류의 뉴스 기사입니다:
         
         === OpenAI 관련 뉴스 ===
-        {openai_news_info}
+        {openai_news}
         
         === 일반 뉴스 ===
-        {news_info}
+        {general_news}
         
-        총 2개의 주요 소식을 다음 형식으로 작성해주세요:
+        총 2개의 주요 소식을 선택하여 작성해주세요:
+        1. OpenAI 관련 뉴스에서 가장 중요한 1개
+        2. 일반 뉴스에서 가장 중요한 1개
         
-        1. 먼저 OpenAI 관련 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
-        2. 그 다음 일반 뉴스에서 가장 중요하고 관련성 높은 1개의 소식을 선택하여 작성하세요.
-        
-        각 소식은 다음 형식으로 작성해주세요:
+        각 소식은 다음 형식으로 작성:
         ## [주제]의 [핵심 강점/특징]은 [주목할만합니다/확인됐습니다/중요합니다].
+        """
         
-        간략한 내용을 1-2문장으로 작성하세요. 내용은 특정 기술이나 서비스, 기업의 최신 소식을 다루고, 
-        핵심 내용만 포함해주세요. 그리고 왜 중요한지를 강조해주세요.
+        response = self.openai_client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "AI 뉴스 전문 에디터입니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
         
-        구체적인 수치나 인용구가 있다면 추가해주세요.
-        
-        각 소식의 마지막에는 뉴스 기사의 발행일과 출처를 반드시 "[출처 제목](출처 URL)" 형식으로 포함하세요.
-        
-        모든 주제는 반드시 제공된 실제 뉴스 기사에서만 추출해야 합니다. 가상의 정보나 사실이 아닌 내용은 절대 포함하지 마세요.
-        각 소식 사이에 충분한 공백을 두어 가독성을 높여주세요.
-        """,
-
-        'aidt_tips': f"""
-        AIDT Weekly 뉴스레터의 '이번 주 AT/DT 팁' 섹션을 생성해주세요.
-        
+        return response.choices[0].message.content
+    
+    def _generate_aidt_tips(self, current_topic: str) -> str:
+        """AT/DT 팁 섹션을 생성합니다."""
+        prompt = f"""
         이번 주 팁 주제는 "{current_topic}"입니다.
-        
-        이 주제에 대해 다음 형식으로 실용적인 팁을 작성해주세요:
+        실용적인 팁을 다음 형식으로 작성해주세요:
         
         ## 이번 주 팁: [주제에 맞는 구체적인 팁 제목]
         
-        팁에 대한 배경과 중요성을 2-3문장으로 간결하게 설명해주세요. AI 기본기와 관련된 내용을 포함하세요.
-        특히, 영어 용어는 한글로 번역하지 말고 그대로 사용해주세요 (예: "Chain of Thought", "Chain of Draft").
+        [팁에 대한 배경과 중요성 2-3문장]
         
         **핵심 프롬프트 예시:**
         - 첫 번째 프롬프트 템플릿 (Chain of Thought 활용):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [구체적인 Chain of Thought 프롬프트 템플릿을 작성하세요]
+          예시: [실제 예시]
+          프롬프트: [템플릿]
         
         - 두 번째 프롬프트 템플릿 (Chain of Draft 활용):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [구체적인 Chain of Draft 프롬프트 템플릿을 작성하세요]
+          예시: [실제 예시]
+          프롬프트: [템플릿]
         
         - 세 번째 프롬프트 템플릿 (Chain of Thought와 Chain of Draft 결합):
-          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
-          프롬프트: [두 기법을 결합한 프롬프트 템플릿을 작성하세요]
-        
-        이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
-        
-        다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
-        """,
-
-        # 다른 프롬프트들은 변경 없음
-        'success_story': """
-        AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
-        한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
-        각 사례는 제목과 3개의 단락으로 구성되어야 합니다.
-        각 단락은 3~4줄로 구성하고, 구체적인 내용과 핵심 정보를 포함해야 합니다.
-        단락 사이에는 한 줄을 띄워서 가독성을 높여주세요.
-        
-        형식:
-        
-        ## [한국 기업명]의 AI 혁신 사례
-        
-        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
-        
-        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
-        
-        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
-        
-        ## [외국 기업명]의 AI 혁신 사례
-        
-        첫 번째 단락에서는 기업이 직면한 문제와 배경을 상세히 설명합니다. 구체적인 수치나 상황을 포함하여 3~4줄로 작성해주세요. 이 부분에서는 독자가 왜 이 기업이 AI 솔루션을 필요로 했는지 이해할 수 있도록 해주세요.
-        
-        두 번째 단락에서는 기업이 도입한 AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
-        
-        세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
-        """,
-
-
-        'events': f"""
-        AIDT Weekly 뉴스레터의 '국내/외 행사' 섹션을 생성해주세요.
-        현재 날짜는 {date}입니다.
-        
-        형식:
-        
-        ## [국내] 행사 제목
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: [장소 정보]
-        - 내용: 간략한 설명 (줄간격 없이 inline 처리)
-        
-        ## [해외] 행사 제목
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: 온라인 (참여 방법 포함)
-        - 내용: 간략한 설명 (줄간격 없이 inline 처리)
-        
-        단락 간 간격은 유지하며, 내부에서는 줄간격 없이 표시해주세요.
-        """,
-        'internal_notice': """
-        AIDT Weekly 뉴스레터의 '[사내 공지]' 섹션을 생성해주세요.
-        제목을 '[사내 공지]'로 표시하고, 내부 줄간격 없이 내용이 이어지도록 작성해주세요.
-        """,
-
-
-        'qa': """
-        AIDT Weekly 뉴스레터의 'Q&A' 섹션을 생성해주세요.
-        형식:
-        
-        ## 간단명료한 질문?
-        
-        답변을 2-3문장으로 간결하게 작성해주세요. 불필요한 설명은 제외하고 핵심 정보만 포함해주세요.
+          예시: [실제 예시]
+          프롬프트: [템플릿]
         """
-    }
+        
+        response = self.openai_client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "AI 프롬프트 엔지니어링 전문가입니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content
     
-    newsletter_content = {}
-    
-    for section, prompt in prompts.items():
-        try:
-            # 사용자가 입력한 성공 사례가 있으면 생성 건너뛰기
-            if section == 'success_story' and custom_success_story:
-                newsletter_content[section] = convert_markdown_to_html(custom_success_story)
-                continue
-                
-            response = client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=[
-                    {"role": "system", "content": "AI 디지털 트랜스포메이션 뉴스레터 콘텐츠 생성 전문가. 간결하고 핵심적인 내용만 포함한 뉴스레터를 작성합니다."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
-            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
-        except Exception as e:
-            newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
-
-# CSS 스타일과 HTML 템플릿
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AIDT Weekly - 제{issue_number}호</title>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Arial, sans-serif;
-                line-height: 1.5;
-                color: #333;
-                margin: 0;
-                padding: 0;
-                background-color: #f9f9f9;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-            }}
-            .content {{
-                padding: 20px;
-            }}
-            .header {{
-                background-color: #333333;
-                color: white;
-                padding: 15px 20px;
-                text-align: left;
-            }}
-            .title {{
-                margin: 0;
-                font-size: 20px;
-                font-weight: bold;
-            }}
-            .issue-date {{
-                margin-top: 5px;
-                font-size: 10pt;
-            }}
-            .section {{
-                margin-bottom: 25px;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 20px;
-            }}
-            .section:last-child {{
-                border-bottom: none;
-            }}
-            .section-title {{
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 10px;
-                background-color: #3e3e3e;
-                padding: 8px 10px;
-                border-radius: 4px;
-            }}
-            .section-icon {{
-                margin-right: 8px;
-            }}
-            h2, h3 {{
-                font-size: 14px;
-                margin-bottom: 5px;
-                color: #333333;
-            }}
-            .main-news h2 {{
-                color: #ff5722;
-                font-size: 14px;
-                margin-top: 15px;
-                margin-bottom: 5px;
-                border-bottom: none;
-                padding-bottom: 0;
-            }}
-            .main-news a {{
-                color: #ff5722;
-                text-decoration: none;
-            }}
-            .main-news a:hover {{
-                text-decoration: underline;
-            }}
-            .main-news p, .success-case p, p, li {{
-                font-size: 10pt;
-                margin: 0 0 8px;
-            }}
-            ul {{
-                padding-left: 20px;
-                margin-top: 5px;
-                margin-bottom: 8px;
-            }}
-            li {{
-                margin-bottom: 3px;
-            }}
-            .footer {{
-                background-color: #f1f1f1;
-                padding: 10px;
-                text-align: center;
-                font-size: 9pt;
-                color: #666;
-            }}
-            .section-container {{
-                padding: 0 15px;
-            }}
-            .highlight-box {{
-                background-color: #fff9f5;
-                border: 1px solid #ffe0cc;
-                border-radius: 5px;
-                padding: 15px;
-                margin: 10px 0;
-            }}
-            .highlight-title {{
-                color: #ff5722;
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 10px;
-                text-align: center;
-            }}
-            .highlight-subtitle {{
-                color: #666;
-                font-size: 12px;
-                text-align: center;
-                margin-bottom: 15px;
-            }}
+    def generate_html(self, content: Dict[str, str], issue_num: int,
+                     highlight_settings: Optional[HighlightSettings] = None) -> str:
+        """최종 HTML 뉴스레터를 생성합니다."""
+        if highlight_settings is None:
+            highlight_settings = HighlightSettings()
             
-            /* AT/DT 팁 섹션 스타일 */
-            .aidt-tips {{
-                font-size: 10pt;
-            }}
-
-            .tip-title {{
-                background-color: #f2f2f2;
-                padding: 8px 10px;
-                margin-bottom: 10px;
-                border-radius: 4px;
-                font-weight: bold;
-            }}
-
-            .prompt-examples-title {{
-                background-color: #f2f2f2;
-                padding: 8px 10px;
-                margin: 15px 0 10px 0;
-                border-radius: 4px;
-                font-weight: bold;
-            }}
-
-            /* 프롬프트 템플릿 스타일 */
-            .prompt-template {{
-                margin-bottom: 20px; /* 템플릿 간 간격 */
-            }}
-
-            .template-title {{
-                color: #ff5722; /* 제목 색상 - 오렌지 계열 */
-                font-weight: bold;
-                margin-bottom: 0; /* 제목과 내용 사이 간격 없음 */
-                padding: 0;
-            }}
-
-            .template-content {{
-                margin-left: 15px;
-            }}
-
-            /* 예시와 프롬프트 스타일 */
-            .example-label, .prompt-label {{
-                font-weight: bold;
-                margin-top: 5px;
-            }}
-
-            .example-content, .prompt-content {{
-                margin-left: 15px;
-                line-height: 1.3; /* 내용 줄간격 약간 줄임 */
-                margin-bottom: 5px;
-            }}
-
-            .tip-footer {{
-                margin-top: 15px;
-                font-style: italic;
-            }}
-
-            .section-container {{ margin-bottom: 20px; }}
-            .internal-notice, .event-section p {{ display: inline; }}
-
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="title">중부Infra AT/DT Weekly</div>
-                <div class="issue-info">제{issue_number}호 | {date}</div>
-            </div>
-            
-            <div class="content">
-                <div class="newsletter-intro">
-                    <p>중부Infra AT/DT 뉴스레터는 모두가 AI발전 속도에 뒤쳐지지 않고 업무에 적용할 수 있도록 가장 흥미로운 AI 활용법을 전합니다.</p>
+        date = datetime.now().strftime('%Y년 %m월 %d일')
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>AIDT Weekly - 제{issue_num}호</title>
+            {get_newsletter_styles()}
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="title">중부Infra AT/DT Weekly</div>
+                    <div class="issue-info">제{issue_num}호 | {date}</div>
                 </div>
                 
-                <div class="highlight-box">
-                    <div class="highlight-title">{highlight_settings['title']}</div>
-                    <div class="highlight-subtitle">{highlight_settings['subtitle']}</div>
-                    <p style="text-align: right; margin-top: 5px; font-size: 9pt;"><a href="{highlight_settings['link_url']}" style="color: #ff5722;">{highlight_settings['link_text']}</a></p>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">주요 소식</div>
-                    <div class="section-container main-news">
-                        {newsletter_content['main_news']}
+                <div class="content">
+                    <div class="newsletter-intro">
+                        <p>중부Infra AT/DT 뉴스레터는 모두가 AI발전 속도에 뒤쳐지지 않고 업무에 적용할 수 있도록 가장 흥미로운 AI 활용법을 전합니다.</p>
+                    </div>
+                    
+                    <div class="highlight-box">
+                        <div class="highlight-title">{highlight_settings.title}</div>
+                        <div class="highlight-subtitle">{highlight_settings.subtitle}</div>
+                        <p style="text-align: right;"><a href="{highlight_settings.link_url}">{highlight_settings.link_text}</a></p>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">주요 소식</div>
+                        <div class="section-container main-news">
+                            {content['main_news']}
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">이번 주 AT/DT 팁</div>
+                        <div class="section-container aidt-tips">
+                            {content['aidt_tips']}
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">주요 행사 안내</div>
+                        <div class="section-container events-section">
+                            {content['events']}
+                        </div>
                     </div>
                 </div>
                 
-                <div class="section">
-                    <div class="section-title">이번 주 AT/DT 팁</div>
-                    <div class="section-container aidt-tips">
-                        {newsletter_content['aidt_tips']}
-                    </div>
-                </div>
-                
-                <div class="section success-case">
-                    <div class="section-title">성공 사례</div>
-                    <div class="section-container">
-                        {newsletter_content['success_story']}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">국내/외 행사</div>
-                    <div class="section-container">
-                        {newsletter_content['events']}
-                    </div>
-                </div>
-
-                <div class="section internal-notice">
-                    <div class="section-title">[사내 공지]</div>
-                    <div class="section-container">
-                        {newsletter_content['internal_notice']}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">질문 & 답변</div>
-                    <div class="section-container">
-                        {newsletter_content['qa']}
-                    </div>
+                <div class="footer">
+                    <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                    <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
                 </div>
             </div>
-            
-            <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
-                <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html_content
+        </body>
+        </html>
+        """
 
-def create_download_link(html_content, filename):
+def create_download_link(html_content: str, filename: str) -> str:
     """HTML 콘텐츠를 다운로드할 수 있는 링크를 생성합니다."""
     b64 = base64.b64encode(html_content.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #ff5722; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">뉴스레터 다운로드</a>'
-    return href
+    return f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #ff5722; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">뉴스레터 다운로드</a>'
 
 def main():
     st.title("AIDT 뉴스레터 생성기")
@@ -626,57 +455,57 @@ def main():
     with st.expander("뉴스레터 기본 설정", expanded=True):
         issue_number = st.number_input("뉴스레터 호수", min_value=1, value=1, step=1)
         
-        # 뉴스 검색 설정
         news_query = st.text_input(
             "뉴스 검색어", 
             value="Telecommunication AND AI digital transformation AND artificial intelligence",
             help="뉴스 API 검색어를 입력하세요. OR, AND 등의 연산자를 사용할 수 있습니다."
         )
         
-        st.info("⚠️ 참고: NewsAPI 무료 플랜은 약 7일 이내의 최신 뉴스만 조회할 수 있습니다. 더 오래된 뉴스를 조회하려면 유료 플랜으로 업그레이드해야 합니다.")
-        
         language = st.selectbox(
-            "뉴스 언어", 
+            "뉴스 언어",
             options=["en", "ko", "ja", "zh", "fr", "de"],
-            format_func=lambda x: {"en": "영어", "ko": "한국어", "ja": "일본어", "zh": "중국어", "fr": "프랑스어", "de": "독일어"}[x],
+            format_func=lambda x: {
+                "en": "영어", "ko": "한국어", "ja": "일본어",
+                "zh": "중국어", "fr": "프랑스어", "de": "독일어"
+            }[x],
             help="뉴스 검색 결과의 언어를 선택하세요."
         )
+        
+        st.info("⚠️ 참고: NewsAPI 무료 플랜은 약 7일 이내의 최신 뉴스만 조회할 수 있습니다.")
     
     # 하이라이트 박스 설정
     with st.expander("하이라이트 박스 설정"):
-        highlight_title = st.text_input("하이라이트 제목", value="중부Infra AT/DT 뉴스레터 개시")
-        highlight_subtitle = st.text_input("하이라이트 부제목", value="AI, 어떻게 시작할지 막막하다면?")
-        highlight_link_text = st.text_input("링크 텍스트", value="AT/DT 추진방향 →")
-        highlight_link_url = st.text_input("링크 URL", value="#")
+        highlight_settings = HighlightSettings(
+            title=st.text_input("하이라이트 제목", value="중부Infra AT/DT 뉴스레터 개시"),
+            subtitle=st.text_input("하이라이트 부제목", value="AI, 어떻게 시작할지 막막하다면?"),
+            link_text=st.text_input("링크 텍스트", value="AT/DT 추진방향 →"),
+            link_url=st.text_input("링크 URL", value="#")
+        )
     
-    # 성공 사례 사용자 입력 옵션
-    with st.expander("성공 사례 직접 입력"):
-        use_custom_success = st.checkbox("성공 사례를 직접 입력하시겠습니까?")
+    # 사내 행사 입력
+    with st.expander("사내 주요 일정 입력"):
+        st.write("최대 2개의 사내 일정을 입력할 수 있습니다.")
+        internal_events = []
         
-        custom_success_story = None
-        if use_custom_success:
-            st.write("아래에 성공 사례를 마크다운 형식으로 입력하세요. 한국 기업과 외국 기업 사례 각 1개씩 포함해주세요.")
-            st.write("각 사례는 3개의 단락으로 구성하고, 단락당 3-4줄로 작성해주세요.")
-            st.write("예시 형식:")
-            st.code("""
-## 삼성전자의 AI 혁신 사례
-
-첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-## Google의 AI 혁신 사례
-
-첫 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-두 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-
-세 번째 단락 내용을 여기에 작성하세요. 3-4줄로 구성하세요.
-            """)
+        for i in range(2):
+            st.subheader(f"사내 일정 {i+1}")
+            col1, col2 = st.columns(2)
             
-            custom_success_story = st.text_area("성공 사례 직접 입력", height=400)
+            with col1:
+                event_title = st.text_input(f"일정 제목", key=f"event_title_{i}")
+                event_date = st.text_input(f"날짜/시간", key=f"event_date_{i}")
+            
+            with col2:
+                event_location = st.text_input(f"장소/형식", key=f"event_location_{i}")
+                event_description = st.text_input(f"내용", key=f"event_description_{i}")
+            
+            if all([event_title, event_date, event_location, event_description]):
+                internal_events.append(InternalEvent(
+                    title=event_title,
+                    date_time=event_date,
+                    location=event_location,
+                    description=event_description
+                ))
     
     # 뉴스레터 생성 버튼
     if st.button("뉴스레터 생성"):
@@ -685,47 +514,37 @@ def main():
         else:
             with st.spinner("뉴스레터 생성 중... (약 1-2분 소요될 수 있습니다)"):
                 try:
-                    # 하이라이트 설정 딕셔너리 생성
-                    highlight_settings = {
-                        "title": highlight_title,
-                        "subtitle": highlight_subtitle,
-                        "link_text": highlight_link_text,
-                        "link_url": highlight_link_url
-                    }
+                    # 뉴스레터 생성기 초기화
+                    generator = NewsletterGenerator(openai_api_key, news_api_key)
                     
-                    html_content = generate_newsletter(
-                        openai_api_key, 
-                        news_api_key,
-                        news_query,
-                        language,
-                        custom_success_story if use_custom_success else None, 
-                        issue_number,
-                        highlight_settings
+                    # 콘텐츠 생성
+                    content = generator.generate_content(
+                        news_query=news_query,
+                        language=language,
+                        internal_events=internal_events if internal_events else None,
+                        issue_num=issue_number
                     )
-                    filename = f"중부 ATDT Weekly-제{issue_number}호.html"
+                    
+                    # HTML 생성
+                    html_content = generator.generate_html(
+                        content=content,
+                        issue_num=issue_number,
+                        highlight_settings=highlight_settings
+                    )
+                    
+                    # 파일명 생성
+                    filename = f"중부_ATDT_Weekly-제{issue_number}호.html"
                     
                     st.success("✅ 뉴스레터가 성공적으로 생성되었습니다!")
                     st.markdown(create_download_link(html_content, filename), unsafe_allow_html=True)
                     
-                    # 미리보기 표시 (iframe 사용) - HTML 태그가 그대로 보이는 문제 수정
-                    st.subheader("생성된 뉴스레터")
-                    
-                    # HTML 특수 문자 처리와 Content-Security-Policy 추가
-                    safe_html = html_content.replace('"', '\\"')
-                    iframe_html = f"""
-                    <iframe 
-                        srcdoc="{safe_html}" 
-                        width="100%" 
-                        height="600" 
-                        frameborder="0"
-                        sandbox="allow-scripts"
-                    ></iframe>
-                    """
-                    st.markdown(iframe_html, unsafe_allow_html=True)
+                    # 미리보기 표시
+                    st.subheader("생성된 뉴스레터 미리보기")
+                    st.components.v1.html(html_content, height=800)
                     
                 except Exception as e:
-                    st.error(f"오류가 발생했습니다: {e}")
+                    st.error(f"오류가 발생했습니다: {str(e)}")
+                    st.exception(e)
 
 if __name__ == "__main__":
     main()
-

@@ -1222,7 +1222,7 @@ def generate_html_template(newsletter_content, issue_number, date, highlight_set
             </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                <p>© {datetime.now().year} 중부Infra AT/DT Weekly | 뉴스레터 구독을 감사드립니다.</p>
                 <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
             </div>
         </div>
@@ -1482,7 +1482,7 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
             </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} AIDT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                <p>© {datetime.now().year} 중부Infra AT/DT Weekly | 뉴스레터 구독을 감사드립니다.</p>
                 <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
             </div>
         </div>

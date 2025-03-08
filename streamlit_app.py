@@ -101,18 +101,20 @@ def convert_markdown_to_html(text):
     
     return ''.join(paragraphs)
 
-def fetch_naver_news(client_id, client_secret, query, display=2):
+def fetch_naver_news(client_id, client_secret, query, display=5, days=7):
     """
-    네이버 검색 API를 사용하여 최근 2주 내의 뉴스를 가져옵니다.
+    네이버 검색 API를 사용하여 뉴스를 가져옵니다.
+    최근 지정된 일수(기본 7일) 이내의 뉴스만 필터링합니다.
     
     Parameters:
     client_id (str): 네이버 개발자 센터에서 발급받은 Client ID
     client_secret (str): 네이버 개발자 센터에서 발급받은 Client Secret
     query (str): 검색할 키워드
-    display (int): 가져올 뉴스 수 (최대 100, 기본값 2)
+    display (int): 가져올 뉴스 수 (최대 100)
+    days (int): 최근 몇 일 이내의 뉴스를 가져올지 지정
     
     Returns:
-    list: 최근 2주 내의 뉴스 기사 목록 (최대 display 개수만큼)
+    list: 뉴스 기사 목록
     """
     url = "https://openapi.naver.com/v1/search/news.json"
     headers = {
@@ -121,31 +123,40 @@ def fetch_naver_news(client_id, client_secret, query, display=2):
     }
     params = {
         "query": query,
-        "display": 100,  # 일단 많이 가져온 후 필터링
-        "sort": "date"   # 최신순으로 정렬
+        "display": 100,  # 더 많은 데이터를 가져와서 필터링 (최대 100개)
+        "sort": "date"  # 최신순으로 정렬
     }
     
     response = requests.get(url, headers=headers, params=params)
     
     if response.status_code == 200:
         result = response.json()
-        all_items = result['items']
         
-        # 현재 시간과 2주 전 시간 계산
-        now = datetime.now()
-        two_weeks_ago = now - timedelta(days=14)
+        # 최근 days일 내의 뉴스만 필터링
+        filtered_items = []
+        current_date = datetime.now()
+        cutoff_date = current_date - timedelta(days=days)
         
-        # 최근 2주 내의 뉴스만 필터링
-        recent_items = []
-        for item in all_items:
-            # 네이버 API는 정확한 날짜 형식을 제공하지 않으므로,
-            # 여기서는 간단히 2주 내의 최신 뉴스 display개만 선택
-            if len(recent_items) < display:
-                recent_items.append(item)
-            else:
-                break
+        for item in result['items']:
+            # 네이버 뉴스 API는 pubDate를 제공하지만 형식이 RFC 822 형식
+            # 예: "Mon, 06 Mar 2023 10:30:00 +0900"
+            try:
+                pub_date_str = item.get('pubDate')
+                if pub_date_str:
+                    # RFC 822 형식 파싱
+                    # 참고: %z는 Python 3.6+ 에서만 작동
+                    pub_date = datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S %z')
+                    # UTC 기준으로 비교하려면 tzinfo를 None으로 설정 (타임존 제거)
+                    pub_date = pub_date.replace(tzinfo=None)
+                    
+                    if pub_date >= cutoff_date:
+                        filtered_items.append(item)
+            except Exception:
+                # 날짜 파싱에 실패하면 일단 포함시킴
+                filtered_items.append(item)
         
-        return recent_items[:display]  # 최대 display 개수만 반환
+        # display 개수만큼만 반환
+        return filtered_items[:display]
     else:
         raise Exception(f"네이버 뉴스 가져오기 실패: {response.status_code} - {response.text}")
 
@@ -167,25 +178,38 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     # 뉴스레터 콘텐츠를 저장할 딕셔너리
     newsletter_content = {}
     
-    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최대 2개)
+    # 네이버 뉴스 가져오기 - 일반 AI 뉴스 (최근 7일 이내, 최신 2개)
     try:
-        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=2)
+        ai_news_items = fetch_naver_news(naver_client_id, naver_client_secret, news_query, display=2, days=7)
         
         # 주요 소식 섹션 콘텐츠 생성
         main_news_content = "<h2>이번 주 AI 주요 소식</h2>"
-        main_news_content += "<p><em>최근 2주 내 뉴스만 표시됩니다</em></p>"
         
-        for i, article in enumerate(ai_news_items):  # 최대 2개의 뉴스
-            # HTML 태그 제거
-            title = article['title'].replace("<b>", "").replace("</b>", "")
-            description = article['description'].replace("<b>", "").replace("</b>", "")
-            
-            main_news_content += f"<h3>{title}</h3>"
-            main_news_content += f"<p>{description}</p>"
-            main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
-            
-            if i < len(ai_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
-                main_news_content += "<hr>"
+        if not ai_news_items:
+            main_news_content += "<p>최근 7일 이내의 관련 뉴스가 없습니다.</p>"
+        else:
+            for i, article in enumerate(ai_news_items):  # 최신 2개 뉴스만 사용
+                # HTML 태그 제거
+                title = article['title'].replace("<b>", "").replace("</b>", "")
+                description = article['description'].replace("<b>", "").replace("</b>", "")
+                
+                # 날짜 표시 추가
+                pub_date_str = article.get('pubDate', '')
+                pub_date_display = ""
+                try:
+                    if pub_date_str:
+                        pub_date = datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S %z')
+                        pub_date_display = pub_date.strftime('%Y년 %m월 %d일')
+                except Exception:
+                    pub_date_display = "날짜 정보 없음"
+                
+                main_news_content += f"<h3>{title}</h3>"
+                main_news_content += f"<p><small>게시일: {pub_date_display}</small></p>"
+                main_news_content += f"<p>{description}</p>"
+                main_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+                
+                if i < len(ai_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                    main_news_content += "<hr>"
         
         newsletter_content['main_news'] = main_news_content
         
@@ -193,25 +217,38 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
         newsletter_content['main_news'] = f"<p>뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
         st.error(f"네이버 API 오류: {str(e)}")
     
-    # 네이버 AI 트렌드 뉴스 가져오기 (최대 2개)
+    # 네이버 AI 트렌드 뉴스 가져오기 (최근 7일 이내, 최신 2개)
     try:
-        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=2)
+        trend_news_items = fetch_naver_news(naver_client_id, naver_client_secret, "AI 트렌드", display=2, days=7)
         
         # AI 트렌드 섹션 콘텐츠 생성
         trend_news_content = "<h2>AI 트렌드 소식</h2>"
-        trend_news_content += "<p><em>최근 2주 내 뉴스만 표시됩니다</em></p>"
         
-        for i, article in enumerate(trend_news_items):  # 최대 2개의 뉴스
-            # HTML 태그 제거
-            title = article['title'].replace("<b>", "").replace("</b>", "")
-            description = article['description'].replace("<b>", "").replace("</b>", "")
-            
-            trend_news_content += f"<h3>{title}</h3>"
-            trend_news_content += f"<p>{description}</p>"
-            trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
-            
-            if i < len(trend_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
-                trend_news_content += "<hr>"
+        if not trend_news_items:
+            trend_news_content += "<p>최근 7일 이내의 AI 트렌드 관련 뉴스가 없습니다.</p>"
+        else:
+            for i, article in enumerate(trend_news_items):  # 최신 2개 뉴스만 사용
+                # HTML 태그 제거
+                title = article['title'].replace("<b>", "").replace("</b>", "")
+                description = article['description'].replace("<b>", "").replace("</b>", "")
+                
+                # 날짜 표시 추가
+                pub_date_str = article.get('pubDate', '')
+                pub_date_display = ""
+                try:
+                    if pub_date_str:
+                        pub_date = datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S %z')
+                        pub_date_display = pub_date.strftime('%Y년 %m월 %d일')
+                except Exception:
+                    pub_date_display = "날짜 정보 없음"
+                
+                trend_news_content += f"<h3>{title}</h3>"
+                trend_news_content += f"<p><small>게시일: {pub_date_display}</small></p>"
+                trend_news_content += f"<p>{description}</p>"
+                trend_news_content += f"<p><a href='{article['link']}' target='_blank'>원문 보기</a> | 출처: {article.get('originallink', article['link'])}</p>"
+                
+                if i < len(trend_news_items) - 1:  # 마지막 뉴스가 아닌 경우 구분선 추가
+                    trend_news_content += "<hr>"
         
         newsletter_content['ai_trends'] = trend_news_content
         
@@ -504,12 +541,13 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
                     </div>
                 </div>
                 
-                <div class="section">
+                <!-- AI 트렌드 섹션 삭제 -->
+                <!-- <div class="section">
                     <div class="section-title">AI 트렌드</div>
                     <div class="section-container main-news">
                         {newsletter_content['ai_trends']}
                     </div>
-                </div>
+                </div> -->
                 
                 <div class="section">
                     <div class="section-title">이번 주 AT/DT 팁</div>

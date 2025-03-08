@@ -66,25 +66,6 @@ def convert_markdown_to_html(text):
         if "다음 주에는" in text:
             text = re.sub(r'(다음 주에는.*?\.)', r'<div class="tip-footer">\1</div>', text)
     
-    # 이벤트 섹션 특별 처리 - 줄간격 조정
-    if ("날짜/시간" in text and "장소/형식" in text and "내용:" in text):
-        # [국내] 또는 [해외] 이벤트 항목 처리
-        if "[국내]" in text or "[해외]" in text:
-            text = re.sub(
-                r'(## \[(국내|해외)\].*?)(\r?\n\- 날짜/시간:.*?)(\r?\n\- 장소/형식:.*?)(\r?\n\- 내용:.*?)(\r?\n|$)',
-                r'<div class="event-item">\1\3\4\5</div>\6',
-                text,
-                flags=re.DOTALL
-            )
-        # 사내 공지 항목 처리
-        else:
-            text = re.sub(
-                r'(## .*?)(\r?\n\- 날짜/시간:.*?)(\r?\n\- 장소/형식:.*?)(\r?\n\- 내용:.*?)(\r?\n|$)',
-                r'<div class="notice-item">\1\2\3\4</div>\5',
-                text,
-                flags=re.DOTALL
-            )
-    
     # 제목 변환 (# 제목)
     text = re.sub(r'^# (.*)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
     text = re.sub(r'^## (.*)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
@@ -100,7 +81,7 @@ def convert_markdown_to_html(text):
     text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     
     # 일반적인 글머리 기호 (- 항목) 처리 (이미 처리된 AT/DT 팁 예시는 제외)
-    if "prompt-template" not in text and "event-item" not in text and "notice-item" not in text:
+    if "prompt-template" not in text:
         text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
     
     # 색상 표시 강조 - 주요 소식에서 사용할 수 있는 색상 강조 기능
@@ -148,10 +129,8 @@ def fetch_real_time_news(api_key, query="AI digital transformation", days=7, lan
         return news_data['articles']
     else:
         raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
-    
 
-def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", 
-                      custom_success_story=None, issue_num=1, highlight_settings=None, custom_notice=None):
+def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
     os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
     
     # OpenAI 클라이언트 초기화
@@ -230,8 +209,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
     except Exception as e:
         openai_news_info = f"OpenAI 관련 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}"
         st.error(f"OpenAI 뉴스 API 오류: {str(e)}")
-
-# 프롬프트 정의
+    
     prompts = {
         'main_news': f"""
         AIDT Weekly 뉴스레터의 '주요 소식' 섹션을 생성해주세요.
@@ -292,6 +270,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
         """,
 
+        # 다른 프롬프트들은 변경 없음
         'success_story': """
         AIDT Weekly 뉴스레터의 '성공 사례' 섹션을 생성해주세요.
         한국 기업 사례 1개와 외국 기업 사례 1개를 생성해야 합니다.
@@ -317,28 +296,32 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         
         세 번째 단락에서는 AI 도입 후 얻은 구체적인 성과와 결과를 설명합니다. 가능한 한 정량적인 수치(비용 절감, 효율성 증가, 고객 만족도 향상 등)를 포함하여 3~4줄로 작성해주세요.
         """,
-        
+
+
         'events': f"""
         AIDT Weekly 뉴스레터의 '국내/외 행사' 섹션을 생성해주세요.
         현재 날짜는 {date}입니다.
-
-        총 2개의 행사 정보를 생성하되, 다음 조건을 만족해야 합니다:
-        1. 국내 행사 1개 - 오프라인 행사 중심으로 찾아주세요
-        2. 해외 행사 1개 - 온라인으로 참여 가능한 행사 중심으로 찾아주세요
-
-        각 행사는 다음 형식으로 생성해주세요:
-
-        ## [국내] [행사명]
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: [오프라인 장소]
-        - 내용: 간략한 설명 (한 문장으로)
-
-        ## [해외] [행사명]
-        - 날짜/시간: [날짜 정보]
-        - 장소/형식: 온라인 (참여 방법 간략히)
-        - 내용: 간략한 설명 (한 문장으로)
-        """,
         
+        형식:
+        
+        ## [국내] 행사 제목
+        - 날짜/시간: [날짜 정보]
+        - 장소/형식: [장소 정보]
+        - 내용: 간략한 설명 (줄간격 없이 inline 처리)
+        
+        ## [해외] 행사 제목
+        - 날짜/시간: [날짜 정보]
+        - 장소/형식: 온라인 (참여 방법 포함)
+        - 내용: 간략한 설명 (줄간격 없이 inline 처리)
+        
+        단락 간 간격은 유지하며, 내부에서는 줄간격 없이 표시해주세요.
+        """,
+        'internal_notice': """
+        AIDT Weekly 뉴스레터의 '[사내 공지]' 섹션을 생성해주세요.
+        제목을 '[사내 공지]'로 표시하고, 내부 줄간격 없이 내용이 이어지도록 작성해주세요.
+        """,
+
+
         'qa': """
         AIDT Weekly 뉴스레터의 'Q&A' 섹션을 생성해주세요.
         형식:
@@ -349,7 +332,6 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         """
     }
     
-    # 뉴스레터 콘텐츠 생성
     newsletter_content = {}
     
     for section, prompt in prompts.items():
@@ -370,18 +352,6 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
         except Exception as e:
             newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
-    
-    # 사용자가 직접 입력한 사내 공지가 있는 경우
-    if custom_notice:
-        # 이벤트 섹션과 사내 공지 섹션 합치기
-        combined_events = f'''{newsletter_content['events']}
-        
-        <div class="section-divider"></div>
-        <h2 class="notice-title">[사내 공지]</h2>
-        <div class="notice-section">
-            {convert_markdown_to_html(custom_notice)}
-        </div>'''
-        newsletter_content['events'] = combined_events
 
 # CSS 스타일과 HTML 템플릿
     html_content = f"""
@@ -559,66 +529,10 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 margin-top: 15px;
                 font-style: italic;
             }}
-            
-            /* 이벤트 섹션 스타일 */
-            .event-section {{
-                font-size: 10pt; /* 모든 글자 크기 10pt로 통일 */
-            }}
 
-            .event-item {{
-                margin-bottom: 20px; /* 각 이벤트 항목(국내/해외) 사이 간격 */
-            }}
+            .section-container {{ margin-bottom: 20px; }}
+            .internal-notice, .event-section p {{ display: inline; }}
 
-            .event-item:last-child {{
-                margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
-            }}
-
-            .event-item h2 {{
-                font-size: 10pt; /* 제목 글자 크기도 10pt로 설정 */
-                font-weight: bold;
-                margin-bottom: 5px;
-            }}
-
-            .event-item br {{
-                display: inline; /* 항목 내부 줄바꿈 제거 */
-                line-height: 1; /* 줄간격 최소화 */
-            }}
-
-            /* 사내 공지 섹션 스타일 */
-            .section-divider {{
-                border-top: 1px dashed #ccc;
-                margin: 15px 0;
-            }}
-
-            .notice-title {{
-                font-size: 14px;
-                font-weight: bold;
-                color: #333;
-                margin: 10px 0;
-            }}
-
-            .notice-section {{
-                font-size: 10pt; /* 사내 공지도 10pt 글자 크기 */
-            }}
-
-            .notice-item {{
-                margin-bottom: 15px; /* 공지 항목 간 간격 */
-            }}
-
-            .notice-item:last-child {{
-                margin-bottom: 0; /* 마지막 항목은 아래 여백 없음 */
-            }}
-
-            .notice-item h2 {{
-                font-size: 10pt; /* 공지 제목도 10pt */
-                font-weight: bold;
-                margin-bottom: 5px;
-            }}
-
-            .notice-item br {{
-                display: inline; /* 항목 내부 줄바꿈 제거 */
-                line-height: 1; /* 줄간격 최소화 */
-            }}
         </style>
     </head>
     <body>
@@ -662,8 +576,15 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 
                 <div class="section">
                     <div class="section-title">국내/외 행사</div>
-                    <div class="section-container event-section">
+                    <div class="section-container">
                         {newsletter_content['events']}
+                    </div>
+                </div>
+
+                <div class="section internal-notice">
+                    <div class="section-title">[사내 공지]</div>
+                    <div class="section-container">
+                        {newsletter_content['internal_notice']}
                     </div>
                 </div>
                 
@@ -690,7 +611,6 @@ def create_download_link(html_content, filename):
     b64 = base64.b64encode(html_content.encode()).decode()
     href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #ff5722; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">뉴스레터 다운로드</a>'
     return href
-
 
 def main():
     st.title("AIDT 뉴스레터 생성기")
@@ -757,28 +677,6 @@ def main():
             """)
             
             custom_success_story = st.text_area("성공 사례 직접 입력", height=400)
-
-    # 사내 공지 입력 옵션
-    with st.expander("사내 공지 직접 입력"):
-        use_custom_notice = st.checkbox("사내 공지를 직접 입력하시겠습니까?")
-        
-        custom_notice = None
-        if use_custom_notice:
-            st.write("아래에 사내 공지를 마크다운 형식으로 입력하세요. 최대 2개까지 입력 가능합니다.")
-            st.write("예시 형식:")
-            st.code('''
-## 주간 팀 미팅
-- 날짜/시간: 2024년 4월 10일 오후 2시
-- 장소/형식: 화상회의 (MS Teams)
-- 내용: 주간 업무 보고 및 이슈 공유
-
-## AT/DT 워크숍
-- 날짜/시간: 2024년 4월 12일 오전 10시 ~ 오후 5시
-- 장소/형식: 본사 대회의실
-- 내용: AI 기술 활용 워크숍 및 실습
-            ''')
-            
-            custom_notice = st.text_area("사내 공지 직접 입력", height=300)
     
     # 뉴스레터 생성 버튼
     if st.button("뉴스레터 생성"):
@@ -802,8 +700,7 @@ def main():
                         language,
                         custom_success_story if use_custom_success else None, 
                         issue_number,
-                        highlight_settings,
-                        custom_notice if use_custom_notice else None  # 사내 공지 추가
+                        highlight_settings
                     )
                     filename = f"중부 ATDT Weekly-제{issue_number}호.html"
                     
@@ -831,3 +728,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

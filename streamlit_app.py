@@ -9,7 +9,7 @@ import requests
 
 def convert_markdown_to_html(text):
     """마크다운 텍스트를 HTML로 변환합니다."""
-    # AT/DT 팁 섹션 특별 처리 - 내용은 유지하면서 스타일만 변경
+    # AT/DT 팁 섹션 특별 처리
     if "이번 주 팁:" in text or "핵심 프롬프트 예시" in text:
         # "이번 주 팁:" 제목을 특별 클래스로 처리
         text = re.sub(r'^## 이번 주 팁: (.*?)$', r'<div class="tip-title">이번 주 팁: \1</div>', text, flags=re.MULTILINE)
@@ -17,19 +17,50 @@ def convert_markdown_to_html(text):
         # "핵심 프롬프트 예시:" 부분을 특별 클래스로 처리
         text = re.sub(r'\*\*핵심 프롬프트 예시:\*\*', r'<div class="prompt-examples-title">핵심 프롬프트 예시:</div>', text)
         
-        # 프롬프트 템플릿 (- 항목) 처리 - 서로 다른 템플릿 사이에는 여백을 추가하고, 예시 내부에서는 줄간격을 없앰
-        prompt_examples = re.findall(r'^\- (.*?)$', text, flags=re.MULTILINE)
+        # 프롬프트 템플릿 처리 (Chain of Thought/Chain of Draft 등)
+        # 각 템플릿은 제목(색상 강조), 예시, 내용으로 구성됨
         
-        for i, example in enumerate(prompt_examples):
-            # 예시 항목 사이에 간격 추가를 위한 클래스 적용 (마지막 항목 제외)
-            margin_class = "prompt-example-with-margin" if i < len(prompt_examples) - 1 else "prompt-example"
-            
-            # 예시 내용에서 줄바꿈이 있다면 처리 (내부 줄간격 줄이기)
-            formatted_example = example.replace('\n', '<br class="no-margin">')
-            
-            formatted_div = f'<div class="{margin_class}"><div class="prompt-example-title">- {formatted_example}</div></div>'
-            # 정확한 원본 텍스트 찾기 위해 멀티라인 플래그 사용
-            text = re.sub(r'- ' + re.escape(example) + r'(\n|$)', formatted_div + r'\1', text, flags=re.MULTILINE)
+        # 첫 번째 템플릿 (Chain of Thought)
+        text = re.sub(
+            r'- (첫 번째 프롬프트 템플릿 \(Chain of Thought 활용\):)(.*?)(?=- 두 번째 프롬프트|$)',
+            r'<div class="prompt-template">'
+            r'<div class="template-title">\1</div>'
+            r'<div class="template-content">\2</div>'
+            r'</div>',
+            text, 
+            flags=re.DOTALL
+        )
+        
+        # 두 번째 템플릿 (Chain of Draft)
+        text = re.sub(
+            r'- (두 번째 프롬프트 템플릿 \(Chain of Draft 활용\):)(.*?)(?=- 세 번째 프롬프트|$)',
+            r'<div class="prompt-template">'
+            r'<div class="template-title">\1</div>'
+            r'<div class="template-content">\2</div>'
+            r'</div>',
+            text, 
+            flags=re.DOTALL
+        )
+        
+        # 세 번째 템플릿 (Chain of Thought와 Chain of Draft 결합)
+        text = re.sub(
+            r'- (세 번째 프롬프트 템플릿 \(Chain of Thought와 Chain of Draft 결합\):)(.*?)(?=이 팁을|$)',
+            r'<div class="prompt-template">'
+            r'<div class="template-title">\1</div>'
+            r'<div class="template-content">\2</div>'
+            r'</div>',
+            text, 
+            flags=re.DOTALL
+        )
+        
+        # 각 템플릿 내에서 예시와 프롬프트 순서 바꾸기
+        # 예시: 로 시작하는 부분을 <div class="example-label">예시:</div><div class="example-content">내용</div> 로 변환
+        text = re.sub(
+            r'<div class="template-content">(.*?)예시:(.*?)프롬프트:(.*?)</div>',
+            r'<div class="template-content"><div class="example-label">예시:</div><div class="example-content">\2</div><div class="prompt-label">프롬프트:</div><div class="prompt-content">\3</div></div>',
+            text,
+            flags=re.DOTALL
+        )
         
         # 마지막 문장 스타일 적용 (약간의 여백과 이탤릭체)
         if "다음 주에는" in text:
@@ -50,7 +81,7 @@ def convert_markdown_to_html(text):
     text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     
     # 일반적인 글머리 기호 (- 항목) 처리 (이미 처리된 AT/DT 팁 예시는 제외)
-    if "prompt-example-title" not in text:
+    if "prompt-template" not in text:
         text = re.sub(r'^\- (.*?)$', r'<li>\1</li>', text, flags=re.MULTILINE)
     
     # 색상 표시 강조 - 주요 소식에서 사용할 수 있는 색상 강조 기능
@@ -98,8 +129,6 @@ def fetch_real_time_news(api_key, query="AI digital transformation", days=7, lan
         return news_data['articles']
     else:
         raise Exception(f"뉴스 가져오기 실패: {response.status_code} - {response.text}")
-
-
 
 def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
     os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
@@ -212,7 +241,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         """,
 
         'aidt_tips': f"""
-        AIDT Weekly 뉴스레터의 '이번 주 AIDT 팁' 섹션을 생성해주세요.
+        AIDT Weekly 뉴스레터의 '이번 주 AT/DT 팁' 섹션을 생성해주세요.
         
         이번 주 팁 주제는 "{current_topic}"입니다.
         
@@ -224,15 +253,21 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         특히, 영어 용어는 한글로 번역하지 말고 그대로 사용해주세요 (예: "Chain of Thought", "Chain of Draft").
         
         **핵심 프롬프트 예시:**
-        - 첫 번째 프롬프트 템플릿 (구체적인 예시와 함께)
-
-        - 두 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        - 첫 번째 프롬프트 템플릿 (Chain of Thought 활용):
+          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
+          프롬프트: [구체적인 Chain of Thought 프롬프트 템플릿을 작성하세요]
         
-        - 세 번째 프롬프트 템플릿 (구체적인 예시와 함께)
+        - 두 번째 프롬프트 템플릿 (Chain of Draft 활용):
+          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
+          프롬프트: [구체적인 Chain of Draft 프롬프트 템플릿을 작성하세요]
+        
+        - 세 번째 프롬프트 템플릿 (Chain of Thought와 Chain of Draft 결합):
+          예시: [이 문제/작업에 대한 실제 예시를 제시하세요]
+          프롬프트: [두 기법을 결합한 프롬프트 템플릿을 작성하세요]
         
         이 팁을 활용했을 때의 업무 효율성 향상이나 결과물 품질 개선 등 구체적인 이점을 한 문장으로 작성해주세요.
         
-        마지막에 "다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다."라는 문장을 추가해주세요.
+        다음 주에는 다른 AI 기본기 팁을 알려드리겠습니다.
         """,
 
         # 다른 프롬프트들은 변경 없음
@@ -306,7 +341,9 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
             newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
         except Exception as e:
             newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
-    
+
+
+# CSS 스타일과 HTML 템플릿
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -429,7 +466,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 margin-bottom: 15px;
             }}
             
-            /* AIDT 팁 섹션 스타일 */
+            /* AT/DT 팁 섹션 스타일 */
             .aidt-tips {{
                 font-size: 10pt;
             }}
@@ -450,27 +487,34 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 font-weight: bold;
             }}
 
-            .prompt-example {{
+            /* 프롬프트 템플릿 스타일 */
+            .prompt-template {{
+                margin-bottom: 20px; /* 템플릿 간 간격 */
+            }}
+
+            .template-title {{
+                color: #ff5722; /* 제목 색상 - 오렌지 계열 */
+                font-weight: bold;
+                margin-bottom: 0; /* 제목과 내용 사이 간격 없음 */
+                padding: 0;
+            }}
+
+            .template-content {{
                 margin-left: 15px;
+            }}
+
+            /* 예시와 프롬프트 스타일 */
+            .example-label, .prompt-label {{
+                font-weight: bold;
+                margin-top: 5px;
+            }}
+
+            .example-content, .prompt-content {{
+                margin-left: 15px;
+                line-height: 1.3; /* 내용 줄간격 약간 줄임 */
                 margin-bottom: 5px;
             }}
 
-            .prompt-example-with-margin {{
-                margin-left: 15px;
-                margin-bottom: 20px; /* 예시 항목 사이에 간격 추가 */
-            }}
-
-            .prompt-example-title {{
-                color: #ff5722;
-                font-weight: bold;
-                line-height: 1.3; /* 예시 내부 줄 간격 줄이기 */
-            }}
-            /* 템플릿 내부의 줄바꿈에 대한 특별 처리 */
-            .prompt-example-title br.no-margin {{
-                display: inline; /* 줄바꿈을 inline으로 처리하여 줄간격 없애기 */
-                margin: 0;
-                line-height: 1;
-            }}
             .tip-footer {{
                 margin-top: 15px;
                 font-style: italic;
@@ -540,6 +584,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
     </html>
     """
     return html_content
+
 
 def create_download_link(html_content, filename):
     """HTML 콘텐츠를 다운로드할 수 있는 링크를 생성합니다."""
@@ -663,4 +708,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -86,7 +86,7 @@ def convert_markdown_to_html(text):
             )
 
     # 사용자가 직접 입력한 사내 공지가 있는 경우
-    if custom_notice:
+    if custom_notice and newsletter_content:
         # 이벤트 섹션과 사내 공지 섹션 합치기
         combined_events = f'''{newsletter_content['events']}
         
@@ -368,7 +368,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
         try:
             # 사용자가 입력한 성공 사례가 있으면 생성 건너뛰기
             if section == 'success_story' and custom_success_story:
-                newsletter_content[section] = convert_markdown_to_html(custom_success_story)
+                newsletter_content[section] = convert_markdown_to_html(custom_success_story, custom_notice, newsletter_content)
                 continue
                 
             response = client.chat.completions.create(
@@ -379,7 +379,7 @@ def generate_newsletter(openai_api_key, news_api_key, news_query, language="en",
                 ],
                 temperature=0.7
             )
-            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content)
+            newsletter_content[section] = convert_markdown_to_html(response.choices[0].message.content, custom_notice, newsletter_content)
         except Exception as e:
             newsletter_content[section] = f"<p>콘텐츠 생성 오류: {e}</p>"
     

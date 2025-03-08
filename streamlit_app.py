@@ -190,7 +190,149 @@ def fetch_naver_news(client_id, client_secret, query, display=5, days=7):
         return filtered_items[:display]
     else:
         raise Exception(f"네이버 뉴스 가져오기 실패: {response.status_code} - {response.text}")
+
+
+def fetch_ai_use_cases(naver_client_id, naver_client_secret, query="AI 활용사례", display=3, days=30):
+    """
+    네이버 검색 API를 사용하여 AI 활용사례를 가져옵니다.
+    """
+    url = "https://openapi.naver.com/v1/search/blog.json"  # 블로그 검색으로 변경 (더 상세한 활용사례를 위해)
+    headers = {
+        "X-Naver-Client-Id": naver_client_id,
+        "X-Naver-Client-Secret": naver_client_secret
+    }
     
+    # 여러 소스에서 검색하기 위한 쿼리 구성
+    search_queries = [
+        f"{query} YouTube",
+        f"{query} 기업",
+        f"{query} 프롬프트"
+    ]
+    
+    all_items = []
+    
+    for search_query in search_queries:
+        params = {
+            "query": search_query,
+            "display": display,
+            "sort": "date"  # 최신순으로 정렬
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code == 200:
+                result = response.json()
+                all_items.extend(result['items'])
+            else:
+                print(f"API 오류: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"검색 중 오류 발생: {str(e)}")
+    
+    # 중복 제거 (title 기준)
+    unique_items = []
+    unique_titles = set()
+    
+    for item in all_items:
+        clean_title = item['title'].replace("<b>", "").replace("</b>", "")
+        if clean_title not in unique_titles:
+            unique_titles.add(clean_title)
+            unique_items.append(item)
+    
+    # 최대 display 개수만큼만 반환
+    return unique_items[:display]
+
+def generate_ai_use_case_content(openai_api_key, use_case_data):
+    """
+    OpenAI를 사용하여 AI 활용사례 콘텐츠를 생성합니다.
+    """
+    if not openai_api_key or not use_case_data:
+        # OpenAI API가 없거나 검색 결과가 없는 경우 기본 콘텐츠 반환
+        return """
+        <h2>ChatGPT를 활용한 코드 리팩토링 사례</h2>
+        
+        <p><strong>요약:</strong> 소프트웨어 개발팀이 레거시 코드를 현대화하는 과정에서 ChatGPT를 활용하여 코드 리팩토링 시간을 단축했습니다. 복잡한 코드를 분석하고 개선하는 작업에 AI의 도움을 받아 생산성이 크게 향상되었습니다.</p>
+        
+        <p><strong>단계별 방법:</strong></p>
+        <ol>
+          <li>레거시 코드를 ChatGPT에 제시하고 코드 구조와 문제점 분석 요청</li>
+          <li>개선된 코드 구조와 디자인 패턴 제안받기</li>
+          <li>코드 품질 향상을 위한 리팩토링 수행 (중복 제거, 모듈화 등)</li>
+          <li>테스트 케이스 생성 및 디버깅 지원 요청</li>
+        </ol>
+        
+        <p><strong>추천 프롬프트:</strong> "다음 코드를 분석하고 문제점을 찾아주세요. 그 후 모던 자바스크립트 관행과 디자인 패턴을 적용하여 리팩토링된 버전을 제공해주세요. 코드의 각 부분이 하는 일을 주석으로 설명하고, 리팩토링의 이유도 함께 설명해주세요."</p>
+        """
+    
+    # 검색 데이터를 기반으로 OpenAI 프롬프트 구성
+    use_case_info = "AI 활용사례 검색 결과:\n\n"
+    
+    for i, item in enumerate(use_case_data):
+        # HTML 태그 제거
+        title = item['title'].replace("<b>", "").replace("</b>", "")
+        description = item['description'].replace("<b>", "").replace("</b>", "")
+        
+        use_case_info += f"{i+1}. 제목: {title}\n"
+        use_case_info += f"   설명: {description}\n"
+        use_case_info += f"   링크: {item['link']}\n\n"
+    
+    client = OpenAI(api_key=openai_api_key)
+    
+    try:
+        prompt = f"""
+        AIDT Weekly 뉴스레터의 'AI 활용사례' 섹션을 생성해주세요.
+        아래는 검색된 실제 AI 활용사례 정보입니다:
+        
+        {use_case_info}
+        
+        위 검색 결과 중에서 가장 유용하고 구체적인 활용사례를 선택하여 다음 형식으로 내용을 작성해주세요:
+        
+        ## [활용사례 제목] - 제목은 1줄로 명확하게
+        
+        **요약:** 배경과 중요성을 2-3문장으로 간결하게 설명해주세요.
+        
+        **단계별 방법:** AI 솔루션을 상세히 설명합니다. 어떤 기술을 사용했는지, 어떻게 구현했는지, 특별한 접근 방식은 무엇이었는지 등을 포함하여 3~4줄로 작성해주세요.
+        
+        **추천 프롬프트:** 이 활용사례를 더 효과적으로 활용하기 위한 구체적이고 명확한 프롬프트 예시를 작성해주세요.
+        
+        모든 내용은 반드시 제공된 검색 결과에서만 추출해야 합니다. 가상의 정보나 사실이 아닌 내용은 절대 포함하지 마세요.
+        내용은 마크다운 형식으로 작성해주세요.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "AI 디지털 트랜스포메이션 활용사례 콘텐츠 생성 전문가. 정확하고 구체적인 정보만 포함합니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        
+        return convert_markdown_to_html(response.choices[0].message.content)
+    except Exception as e:
+        print(f"OpenAI API 오류: {str(e)}")
+        # 오류 발생 시 기본 콘텐츠 반환
+        return """
+        <h2>AI를 활용한 고객 서비스 개선 사례</h2>
+        
+        <p><strong>요약:</strong> 고객 문의량이 많은 기업에서 AI 챗봇을 도입하여 상담원의 업무 부담을 줄이고 24시간 고객 지원을 가능하게 한 사례입니다. 반복적인 질문에 자동 응답하여 상담원이 복잡한 문의에 집중할 수 있게 되었습니다.</p>
+        
+        <p><strong>단계별 방법:</strong></p>
+        <ol>
+          <li>자주 묻는 질문(FAQ)과 기존 상담 데이터 수집 및 분석</li>
+          <li>AI 모델 학습 및 챗봇 시스템 구축</li>
+          <li>사용자 피드백을 통한 지속적인 개선</li>
+          <li>복잡한 문의는 인간 상담원에게 자동 전달되는 시스템 구현</li>
+        </ol>
+        
+        <p><strong>추천 프롬프트:</strong> "고객 서비스용 AI 챗봇을 만들기 위해, 우리 회사의 자주 묻는 질문 목록을 분석하고 효과적인 응답 템플릿을 제안해주세요. 각 질문 유형별로 챗봇이 어떻게 응답해야 할지 예시를 포함해주세요."</p>
+        """
+
+
+
+
+
+
     # OpenAI와 NewsAPI를 사용한 뉴스레터 생성 함수
 def generate_newsletter(openai_api_key, news_api_key, news_query, language="en", custom_success_story=None, issue_num=1, highlight_settings=None):
     os.environ["OPENAI_API_KEY"] = openai_api_key  # OpenAI API 키 설정
@@ -595,6 +737,8 @@ def generate_newsletter_naver_only(naver_client_id, naver_client_secret, news_qu
     return html_content
 
 # 모든 API를 사용한 통합 뉴스레터 생성 함수
+# Modified generate_combined_newsletter function
+
 def generate_combined_newsletter(openai_api_key, news_api_key, naver_client_id, naver_client_secret, 
                              news_query_en, news_query_ko, language="en", custom_success_story=None, 
                              issue_num=1, highlight_settings=None):
@@ -958,10 +1102,41 @@ def generate_combined_newsletter(openai_api_key, news_api_key, naver_client_id, 
             
             newsletter_content['naver_trends'] = trend_news_content
             
+            # AI 활용사례 가져오기 (여기에 새로운 섹션 추가)
+            try:
+                # AI 활용사례 검색
+                ai_use_cases = fetch_ai_use_cases(naver_client_id, naver_client_secret, "AI 활용사례", display=3, days=30)
+                
+                # AI 활용사례 콘텐츠 생성
+                ai_use_case_content = generate_ai_use_case_content(openai_api_key, ai_use_cases)
+                
+                newsletter_content['ai_use_case'] = ai_use_case_content
+            except Exception as e:
+                st.error(f"AI 활용사례 가져오기 오류: {str(e)}")
+                newsletter_content['ai_use_case'] = "<p>AI 활용사례를 가져오는 중 오류가 발생했습니다.</p>"
+            
         except Exception as e:
             st.error(f"네이버 API 오류: {str(e)}")
             newsletter_content['naver_news'] = f"<p>네이버 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
             newsletter_content['naver_trends'] = f"<p>네이버 AI 트렌드 뉴스를 가져오는 중 오류가 발생했습니다: {str(e)}</p>"
+    else:
+        # 네이버 API가 없는 경우 AI 활용사례 기본 콘텐츠 추가
+        ai_use_case_content = """
+        <h2>AI를 활용한 문서 요약 및 번역 사례</h2>
+        
+        <p><strong>요약:</strong> 다국적 기업에서 여러 언어로 된 보고서와 문서를 효율적으로 처리하기 위해 AI 요약 및 번역 시스템을 도입했습니다. 이를 통해 문서 처리 시간을 80% 단축하고 국가 간 정보 공유를 원활하게 개선했습니다.</p>
+        
+        <p><strong>단계별 방법:</strong></p>
+        <ol>
+          <li>GPT 기반 문서 요약 시스템 구축으로 긴 문서의 핵심 내용 추출</li>
+          <li>다국어 번역 모델을 통합하여 10개 이상 언어 간 번역 지원</li>
+          <li>전문 용어 사전을 구축하여 산업 특화 번역 정확도 향상</li>
+          <li>문서 형식을 유지하며 요약 및 번역 결과를 원본과 함께 제공</li>
+        </ol>
+        
+        <p><strong>추천 프롬프트:</strong> "다음 기술 보고서를 3가지 핵심 포인트로 요약하고, 각 포인트에 대한 간략한 설명을 추가해주세요. 그 후 요약된 내용을 [대상 언어]로 번역해주세요. 산업 용어는 정확하게 번역하고, 번역된 용어 옆에 영어 원문을 괄호 안에 표기해주세요."</p>
+        """
+        newsletter_content['ai_use_case'] = ai_use_case_content
     
     # 하이라이트 설정 기본값
     if highlight_settings is None:
@@ -1426,6 +1601,15 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
             .naver-section h2, .naver-section h3 {{
                 color: #333333; /* 검은색으로 변경 */
             }}
+            
+            /* AI 활용사례 섹션 스타일 */
+            .section ol {{
+                margin-left: 20px;
+                padding-left: 0;
+            }}
+            .section ol li {{
+                margin-bottom: 5px;
+            }}
         </style>
     </head>
     <body>
@@ -1473,6 +1657,14 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
                     </div>
                 </div>
                 
+                <!-- AI 활용사례 섹션 (새로 추가) -->
+                <div class="section">
+                    <div class="section-title">AI 활용사례</div>
+                    <div class="section-container">
+                        {newsletter_content.get('ai_use_case', '<p>AI 활용사례를 불러올 수 없습니다.</p>')}
+                    </div>
+                </div>
+                
                 <div class="section success-case">
                     <div class="section-title">성공 사례</div>
                     <div class="section-container">
@@ -1482,8 +1674,8 @@ def generate_combined_html_template(newsletter_content, issue_number, date, high
             </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} 중부Infra AT/DT Weekly | 뉴스레터 구독을 감사드립니다.</p>
-                <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요.</p>
+                <p>© 2025 중부Infra AT/DT Weekly | 뉴스레터 구독을 감사드립니다.</p>
+                <p>문의사항이나 제안이 있으시면 언제든지 연락해 주세요^^.</p>
             </div>
         </div>
     </body>
